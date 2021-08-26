@@ -1,0 +1,372 @@
+#!/bin/bash
+
+CREDS_FILE="../gen/workshop-credentials.json"
+
+#*********************************
+if [ -f "$CREDS_FILE" ]
+then
+    DT_BASEURL=$(cat $CREDS_FILE | jq -r '.DT_BASEURL')
+    DT_API_TOKEN=$(cat $CREDS_FILE | jq -r '.DT_API_TOKEN')
+    DT_PAAS_TOKEN=$(cat $CREDS_FILE | jq -r '.DT_PAAS_TOKEN')
+    DT_ENVIRONMENT_ID=$(cat $CREDS_FILE | jq -r '.DT_ENVIRONMENT_ID')
+    AZURE_RESOURCE_GROUP=$(cat $CREDS_FILE | jq -r '.AZURE_RESOURCE_GROUP')
+    AZURE_SUBSCRIPTION=$(cat $CREDS_FILE | jq -r '.AZURE_SUBSCRIPTION')
+    AZURE_LOCATION=$(cat $CREDS_FILE | jq -r '.AZURE_LOCATION')
+    RESOURCE_PREFIX=$(cat $CREDS_FILE | jq -r '.RESOURCE_PREFIX')
+    AZURE_AKS_CLUSTER_NAME=$(cat $CREDS_FILE | jq -r '.AZURE_AKS_CLUSTER_NAME')
+
+else 
+  echo "ABORT: CREDS_FILE: $CREDS_FILE not found"
+  exit 1
+fi
+
+#*********************************
+create_dynatrace_operator_secrets_script()
+{
+  # reference: https://www.dynatrace.com/support/help/technology-support/container-platforms/kubernetes/monitor-kubernetes-environments/
+
+  SECRETS_TEMPLATE_FILE=dynatrace-secret.template
+  SECRETS_GEN_FILE="../learner-scripts/create-dynatrace-secret.sh"
+
+  # create new file from the template with learner Dynatrace tenant information
+  echo "#!/bin/bash" > $SECRETS_GEN_FILE
+  cat $SECRETS_TEMPLATE_FILE | \
+    sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN"'~' | \
+    sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' >> $SECRETS_GEN_FILE
+
+  chmod +x $SECRETS_GEN_FILE
+  echo "Saved dynatrace operator secrets script to: $SECRETS_GEN_FILE"
+}
+
+#*********************************
+create_dynatrace_operator_custom_resource_file()
+{
+  # download custom resource file
+  CR_TEMP_FILE="../learner-scripts/cr.tmp"
+  CR_GEN_FILE="../learner-scripts/cr.yaml"
+  curl -Lo $CR_TEMP_FILE https://github.com/Dynatrace/dynatrace-operator/releases/latest/download/cr.yaml
+
+  # update with learner Dynatrace tenant information
+  cat $CR_TEMP_FILE | \
+    sed 's~https://ENVIRONMENTID.live.dynatrace.com~'"$DT_BASEURL"'~' > $CR_GEN_FILE
+
+  rm $CR_TEMP_FILE
+  echo "Saved custom resource file to: $CR_GEN_FILE"
+}
+
+#*********************************
+create_aks_cluster()
+{
+  create_resource_group
+  # only create if it does not exist
+  if [ -z $(az aks show -n $AZURE_AKS_CLUSTER_NAME --resource-group $AZURE_RESOURCE_GROUP --query id) ]; then
+    echo ""
+    echo "If you see an ERROR, that is ok it was just a check to see if the cluster already exists "
+    echo "Creating AKS Cluster: $AZURE_AKS_CLUSTER_NAME"
+    az aks create \
+      --resource-group $AZURE_RESOURCE_GROUP \
+      --name $AZURE_AKS_CLUSTER_NAME \
+      --node-count 2 \
+      --enable-addons monitoring \
+      --generate-ssh-keys
+  else
+    echo "ABORT: AKS Cluster $AZURE_AKS_CLUSTER_NAME already exists"
+    exit 1
+  fi
+}
+
+#*********************************
+delete_aks_cluster()
+{
+  # only create if it does not exist
+  if [ $(az group show -n $AZURE_RESOURCE_GROUP --resource-group $AZURE_RESOURCE_GROUP --query id) ]; then
+    echo "Deleting AKS Cluster: $AZURE_RESOURCE_GROUP"
+    az aks delete \
+      --resource-group $AZURE_RESOURCE_GROUP \
+      --name $AZURE_AKS_CLUSTER_NAME \
+      --yes
+  else
+    echo "AKS Cluster $AZURE_RESOURCE_GROUP not found"
+  fi
+}
+
+#*********************************
+create_azure_service_principal()
+{
+  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp" 
+  AZURE_SP_JSON_FILE="../gen/workshop-azure-service-principal.json"
+
+  # delete sp if it exists
+  echo "Seeing if $AZURE_SP_NAME exists in Azure"
+  ID=$(az ad sp list --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
+  if ! [ -z "$ID" ]; then
+      echo "Deleting existing $AZURE_SP_NAME within Azure"
+      az ad sp delete --id $ID
+  else
+      echo "$AZURE_SP_NAME did not exist in Azure"
+  fi
+
+  echo "Adding $AZURE_SP_NAME to Azure and sending output to $AZURE_SP_JSON_FILE"
+  az ad sp create-for-rbac \
+      --name "http://$AZURE_SP_NAME" \
+      --role reader \
+      --scopes "/subscriptions/$AZURE_SUBSCRIPTION" \
+      > "$AZURE_SP_JSON_FILE"
+
+  echo "Sleeping 10 seconds to allow for Azure subscription creation"
+  sleep 10
+}
+
+#*********************************
+delete_azure_service_principal()
+{
+  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp" 
+  AZURE_SP_JSON_FILE="../gen/workshop-azure-service-principal.json"
+
+  # delete sp if it exists
+  echo "Seeing if $AZURE_SP_NAME exists in Azure"
+  ID=$(az ad sp list --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
+  if ! [ -z "$ID" ]; then
+      echo "Deleting existing $AZURE_SP_NAME within Azure"
+      az ad sp delete --id $ID
+  else
+      echo "$AZURE_SP_NAME did not exist in Azure"
+  fi
+}
+
+#*********************************
+does_vm_exist()
+{
+  if [ -z $(az vm get-instance-view -g $AZURE_RESOURCE_GROUP -n $HOSTNAME --subscription $AZURE_SUBSCRIPTION --query vmId) ]; then
+    echo "$HOSTNAME does NOT exist"
+    echo false
+  else
+    echo "$HOSTNAME does exist"
+    echo true
+  fi
+}
+
+#*********************************
+# https://www.dynatrace.com/support/help/technology-support/cloud-platforms/microsoft-azure/azure-services/virtual-machines/deploy-oneagent-on-azure-virtual-machines/
+# can add , \"enableLogsAnalytics\":\"yes\"
+add_oneagent_extension()
+{
+  AGENT=$1  # values oneAgentLinux,oneAgentWindows
+  HOSTGROUP_NAME=$2
+  echo ""
+  echo "Adding OneAgent extension for $HOSTNAME"
+
+  EXTENTION_STATUS="$(az vm extension set \
+    --publisher dynatrace.ruxit \
+    --name "$AGENT" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --subscription "$AZURE_SUBSCRIPTION" \
+    --vm-name "$HOSTNAME" \
+    --settings "{\"tenantId\":\"$DT_ENVIRONMENT_ID\",\"token\":\"$DT_PAAS_TOKEN\", \"server\":\"$DT_BASEURL/api\", \"hostGroup\":\"$HOSTGROUP_NAME\"}" \
+    | jq -r '.provisioningState')"
+    
+  echo "Extension Installation Status: $EXTENTION_STATUS"
+  echo ""
+}
+
+#*********************************
+create_resource_group()
+{
+  # only create if it does not exist
+  if [ -z $(az group show -n $AZURE_RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --query id) ]; then
+    echo "Creating resource group: $AZURE_RESOURCE_GROUP"
+    az group create \
+      --location "$AZURE_LOCATION" \
+      --name "$AZURE_RESOURCE_GROUP" \
+      --subscription "$AZURE_SUBSCRIPTION"
+  else
+    echo "Using resource group $AZURE_RESOURCE_GROUP"
+  fi
+}
+
+#*********************************
+delete_resource_group()
+{
+  # only create if it does not exist
+  if [ $(az group show -n $AZURE_RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --query id) ]; then
+    echo "Deleting resource group: $AZURE_RESOURCE_GROUP"
+    az group delete \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --yes
+  else
+    echo "Resource group $AZURE_RESOURCE_GROUP not found"
+  fi
+}
+
+#*********************************
+provision_linux_active_gate()
+{
+  HOSTNAME="dt-orders-active-gate"
+
+  # make cloud-init with users API and TOKEN info
+  ACTIVATE_GATE_FILE="../gen/cloud-init-activegate.txt"
+
+  echo "#cloud-config" > $ACTIVATE_GATE_FILE
+  echo "runcmd:" >> $ACTIVATE_GATE_FILE
+  echo "  - wget -O /tmp/Dynatrace-ActiveGate-Linux-x86.sh \"$DT_BASEURL/api/v1/deployment/installer/gateway/unix/latest?arch=x86&flavor=default\" --header=\"Authorization:Api-Token $DT_PAAS_TOKEN\"" >> $ACTIVATE_GATE_FILE
+  echo "  - sudo /bin/sh /tmp/Dynatrace-ActiveGate-Linux-x86.sh" >> $ACTIVATE_GATE_FILE
+  echo "" >> $ACTIVATE_GATE_FILE
+
+  echo "Checking if $HOSTNAME already exists"
+  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  echo ""
+  if [ "$(does_vm_exist)" == "true" ]; then
+    echo "Skipping, host $HOSTNAME exists"
+    echo ""
+  else
+    echo ""
+    echo "Provisioning $HOSTNAME"
+
+    VM_STATE="$(az vm create \
+      --name "$HOSTNAME" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --image "UbuntuLTS" \
+      --custom-data "$ACTIVATE_GATE_FILE" \
+      --tags Owner=azure-modernize-workshop \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --location "$AZURE_LOCATION" \
+      --authentication-type password \
+      --admin-username azureuser \
+      --admin-password Azureuser123# \
+      --size Standard_B1ms \
+      | jq -r '.powerState')"
+
+    echo "VM State: $VM_STATE"
+    if [ "$VM_STATE" != "VM running" ]; then
+      echo "Aborting due to VM creation error."
+      break
+    fi
+  fi
+}
+
+#*********************************
+# cloud-init logs: /var/log/cloud-init.log
+provision_monolith_vm()
+{
+  INIT_TEMPLATE_FILE=cloud-init-monolith.template
+  INIT_FILE_GEN=../gen/cloud-init-monolith.txt
+
+  cat $INIT_TEMPLATE_FILE | \
+    sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' | \
+    sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' > $INIT_FILE_GEN
+
+  HOSTNAME="dt-orders-monolith"
+  echo "Checking if $HOSTNAME already exists"
+  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  echo ""
+  if [ "$(does_vm_exist)" == "true" ]; then
+    echo "Skipping, host $HOSTNAME exists"
+    echo ""
+  else
+    echo ""
+    echo "Provisioning $HOSTNAME"
+    
+    VM_STATE="$(az vm create \
+      --name "$HOSTNAME" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --image UbuntuLTS \
+      --tags Owner=azure-modernize-workshop \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --location "$AZURE_LOCATION" \
+      --custom-data "$INIT_FILE_GEN" \
+      --authentication-type password \
+      --admin-username workshop \
+      --admin-password Workshop123# \
+      --size Standard_E2_v3 \
+      | jq -r '.powerState')"
+
+    echo "VM State: $VM_STATE"
+    if [ "$VM_STATE" != "VM running" ]; then
+      echo "Aborting due to VM creation error."
+      break
+    else
+      echo "Opening Ports"
+      OPEN_PORT="$(az vm open-port --port 80 --priority 1010 --resource-group "$AZURE_RESOURCE_GROUP" --name "$HOSTNAME" --subscription "$AZURE_SUBSCRIPTION")"
+    fi
+  fi
+}
+
+#*********************************
+# cloud-init logs: /var/log/cloud-init.log
+provision_services_vm()
+{
+  INIT_TEMPLATE_FILE=cloud-init-services.template
+  INIT_FILE_GEN=../gen/cloud-init-services.txt
+
+  cat $INIT_TEMPLATE_FILE | \
+    sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' | \
+    sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' > $INIT_FILE_GEN
+
+  HOSTNAME="dt-orders-services"
+  echo "Checking if $HOSTNAME already exists"
+  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  echo ""
+  if [ "$(does_vm_exist)" == "true" ]; then
+    echo "Skipping, host $HOSTNAME exists"
+    echo ""
+  else
+    echo ""
+    echo "Provisioning $HOSTNAME"
+    
+    VM_STATE="$(az vm create \
+      --name "$HOSTNAME" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --image UbuntuLTS \
+      --tags Owner=azure-modernize-workshop \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --location "$AZURE_LOCATION" \
+      --custom-data "$INIT_FILE_GEN" \
+      --authentication-type password \
+      --admin-username workshop \
+      --admin-password Workshop123# \
+      --size Standard_E2_v3 \
+      | jq -r '.powerState')"
+
+    echo "VM State: $VM_STATE"
+    if [ "$VM_STATE" != "VM running" ]; then
+      echo "Aborting due to VM creation error."
+      break
+    else
+      echo "Opening Ports"
+      OPEN_PORT="$(az vm open-port --port 80 --priority 1010 --resource-group "$AZURE_RESOURCE_GROUP" --name "$HOSTNAME" --subscription "$AZURE_SUBSCRIPTION")"
+    fi
+  fi
+}
+
+createhost() {
+  #*********************************
+  # Reference: 
+  # Dynatrace: https://www.dynatrace.com/support/help/technology-support/cloud-platforms/microsoft-azure/azure-services/virtual-machines/deploy-oneagent-on-azure-virtual-machines
+  # Azure:     https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest#az-vm-create
+  #*********************************
+  HOST_TYPE=$1  
+
+  echo "==================================================================================="
+  create_resource_group
+  case $HOST_TYPE in
+  monolith)
+    echo "Provisioning $HOST_TYPE : Starting: $(date)"
+    provision_monolith_vm $HOST_CTR
+    ;;
+  services)
+    echo "Provisioning $HOST_TYPE : Starting: $(date)"
+    provision_services_vm $HOST_CTR
+    ;;
+  active-gate)
+    echo "Provisioning $HOST_TYPE : Starting: $(date)"
+    provision_linux_active_gate $HOST_CTR
+    ;;
+  *) 
+    echo "Invalid HOST_TYPE option: $HOST_TYPE"
+    break
+    ;;
+  esac
+  echo "*** Done. $(date) ***"
+  echo "==================================================================================="
+}
