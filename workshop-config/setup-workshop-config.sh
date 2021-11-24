@@ -82,6 +82,19 @@ download_monaco() {
 }
 
 run_monaco() {
+    #auto provivision changes begin
+    MONACO_PROJECT=$1
+    DASHBOARD_OWNER=$2
+
+    if [ -z $DASHBOARD_OWNER ]; then
+        # need to do this so that the monaco valdiation does not fail
+        # even though you are not running the dashboard project, monaco
+        # still valdiates all the projects in the projects folders
+        export OWNER=DUMMY_PLACEHOLDER
+    else
+        export OWNER=$DASHBOARD_OWNER_EMAIL
+    fi
+    #auto provision change end
     if [ -z "$1" ]; then
         MONACO_PROJECT=workshop
     else
@@ -129,6 +142,16 @@ case "$SETUP_TYPE" in
     "synthetics") 
         echo "Setup type = synthetics"
         run_monaco synthetics
+        ;;
+    "dashboard")
+        if [ -z $DASHBOARD_OWNER_EMAIL ]; then
+            echo "ABORT dashboard owner email is required argument"
+            echo "syntax: ./setup-workshop-config.sh dashboard name@company.com"
+            exit 1
+        else
+            echo "Setup type = dashboard"
+            run_monaco db $DASHBOARD_OWNER_EMAIL
+        fi
         ;;
     *) 
         echo "Setup type = base workshop"
