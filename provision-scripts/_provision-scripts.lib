@@ -15,7 +15,7 @@ then
     RESOURCE_PREFIX=$(cat $CREDS_FILE | jq -r '.RESOURCE_PREFIX')
     AZURE_AKS_CLUSTER_NAME=$(cat $CREDS_FILE | jq -r '.AZURE_AKS_CLUSTER_NAME')
 
-else 
+else
   echo "ABORT: CREDS_FILE: $CREDS_FILE not found"
   exit 1
 fi
@@ -55,13 +55,29 @@ create_dynatrace_operator_custom_resource_file()
 }
 
 #*********************************
+does_aks_exist()
+{
+  AKSCHECK=$(az aks show -n $AZURE_AKS_CLUSTER_NAME --resource-group $AZURE_RESOURCE_GROUP --query id 2>&1 | grep "NotFound")
+  if [ -z "$AKSCHECK" ]; then
+    #error found, no cluster resource exist
+    echo false
+  else
+    #No error found, hence cluster exist
+    echo true
+  fi
+}
+
+
+#*********************************
+
+#*********************************
 create_aks_cluster()
 {
   create_resource_group
   # only create if it does not exist
-  if [ -z $(az aks show -n $AZURE_AKS_CLUSTER_NAME --resource-group $AZURE_RESOURCE_GROUP --query id) ]; then
+  if [ "$(does_aks_exist)" == "true" ]; then
     echo ""
-    echo "If you see an ERROR, that is ok it was just a check to see if the cluster already exists "
+    #echo "If you see an ERROR, that is ok it was just a check to see if the cluster already exists "
     echo "Creating AKS Cluster: $AZURE_AKS_CLUSTER_NAME"
     az aks create \
       --resource-group $AZURE_RESOURCE_GROUP \
@@ -93,7 +109,7 @@ delete_aks_cluster()
 #*********************************
 create_azure_service_principal()
 {
-  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp" 
+  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp"
   AZURE_SP_JSON_FILE="../gen/workshop-azure-service-principal.json"
 
   # delete sp if it exists
@@ -120,7 +136,7 @@ create_azure_service_principal()
 #*********************************
 delete_azure_service_principal()
 {
-  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp" 
+  AZURE_SP_NAME="$AZURE_RESOURCE_GROUP-sp"
   AZURE_SP_JSON_FILE="../gen/workshop-azure-service-principal.json"
 
   # delete sp if it exists
@@ -137,12 +153,13 @@ delete_azure_service_principal()
 #*********************************
 does_vm_exist()
 {
-  if [ -z $(az vm get-instance-view -g $AZURE_RESOURCE_GROUP -n $HOSTNAME --subscription $AZURE_SUBSCRIPTION --query vmId) ]; then
-    echo "$HOSTNAME does NOT exist"
+  VMCHECK=$(az vm get-instance-view -g $AZURE_RESOURCE_GROUP -n $HOSTNAME --subscription $AZURE_SUBSCRIPTION --query vmId 2>&1 | grep "ResourceNotFound")
+  if [ -z "$VMCHECK" ]; then
+    #error so VM doesn't exist
     echo false
   else
-    echo "$HOSTNAME does exist"
-    echo true
+   #no error so VM does exist
+    echo false
   fi
 }
 
@@ -164,7 +181,7 @@ add_oneagent_extension()
     --vm-name "$HOSTNAME" \
     --settings "{\"tenantId\":\"$DT_ENVIRONMENT_ID\",\"token\":\"$DT_PAAS_TOKEN\", \"server\":\"$DT_BASEURL/api\", \"hostGroup\":\"$HOSTGROUP_NAME\"}" \
     | jq -r '.provisioningState')"
-    
+
   echo "Extension Installation Status: $EXTENTION_STATUS"
   echo ""
 }
@@ -172,18 +189,33 @@ add_oneagent_extension()
 #*********************************
 create_resource_group()
 {
-  # only create if it does not exist
-  if [ -z $(az group show -n $AZURE_RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --query id) ]; then
-    echo "Creating resource group: $AZURE_RESOURCE_GROUP"
-    az group create \
-      --location "$AZURE_LOCATION" \
-      --name "$AZURE_RESOURCE_GROUP" \
-      --subscription "$AZURE_SUBSCRIPTION"
-  else
-    echo "Using resource group $AZURE_RESOURCE_GROUP"
-  fi
+        if [ "$(does_group_exist)" == "true" ]; then
+            echo "Skipping, resource group $AZURE_RESOURCE_GROUP exists"
+            echo ""
+        else
+            echo ""
+            echo "Provisioning resource group: $AZURE_RESOURCE_GROUP"
+            echo "--------"
+             az group create \
+              --location "$AZURE_LOCATION" \
+              --name "$AZURE_RESOURCE_GROUP" \
+              --subscription "$AZURE_SUBSCRIPTION"
+            echo "-------"
+        fi
+
 }
 
+#*********************************
+does_group_exist()
+{
+  GROUPCHECK=$(az group show -g $AZURE_RESOURCE_GROUP --output tsv --query id 2>&1 | grep "NotFound")
+  if [ -z "$GROUPCHECK" ]; then
+    echo true
+  else
+    echo false
+  fi
+}
+#*********************************
 #*********************************
 delete_resource_group()
 {
@@ -214,14 +246,14 @@ provision_linux_active_gate()
   echo "" >> $ACTIVATE_GATE_FILE
 
   echo "Checking if $HOSTNAME already exists"
-  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  #echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
   echo ""
   if [ "$(does_vm_exist)" == "true" ]; then
     echo "Skipping, host $HOSTNAME exists"
     echo ""
   else
-    echo ""
-    echo "Provisioning $HOSTNAME"
+    #echo ""
+    echo "Host doesn't exist; Provisioning $HOSTNAME"
 
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
@@ -234,6 +266,7 @@ provision_linux_active_gate()
       --authentication-type password \
       --admin-username azureuser \
       --admin-password Azureuser123# \
+      --public-ip-sku Standard \
       --size Standard_B1ms \
       | jq -r '.powerState')"
 
@@ -258,15 +291,15 @@ provision_monolith_vm()
 
   HOSTNAME="dt-orders-monolith"
   echo "Checking if $HOSTNAME already exists"
-  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
-  echo ""
+  #echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  #echo ""
   if [ "$(does_vm_exist)" == "true" ]; then
     echo "Skipping, host $HOSTNAME exists"
     echo ""
   else
     echo ""
-    echo "Provisioning $HOSTNAME"
-    
+    echo "Host doesn't exist; Provisioning $HOSTNAME"
+
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
@@ -279,6 +312,7 @@ provision_monolith_vm()
       --admin-username workshop \
       --admin-password Workshop123# \
       --size Standard_E2_v3 \
+      --public-ip-sku Standard \
       | jq -r '.powerState')"
 
     echo "VM State: $VM_STATE"
@@ -305,7 +339,7 @@ provision_services_vm()
 
   HOSTNAME="dt-orders-services"
   echo "Checking if $HOSTNAME already exists"
-  echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
+  #echo "If you see 'ERROR: (ResourceNotFound)', that is OK.  Its just the output from azure CLI"
   echo ""
   if [ "$(does_vm_exist)" == "true" ]; then
     echo "Skipping, host $HOSTNAME exists"
@@ -313,7 +347,7 @@ provision_services_vm()
   else
     echo ""
     echo "Provisioning $HOSTNAME"
-    
+
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
@@ -337,15 +371,15 @@ provision_services_vm()
       OPEN_PORT="$(az vm open-port --port 80 --priority 1010 --resource-group "$AZURE_RESOURCE_GROUP" --name "$HOSTNAME" --subscription "$AZURE_SUBSCRIPTION")"
     fi
   fi
-}
+}    
 
 createhost() {
   #*********************************
-  # Reference: 
+  # Reference:
   # Dynatrace: https://www.dynatrace.com/support/help/technology-support/cloud-platforms/microsoft-azure/azure-services/virtual-machines/deploy-oneagent-on-azure-virtual-machines
   # Azure:     https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest#az-vm-create
   #*********************************
-  HOST_TYPE=$1  
+  HOST_TYPE=$1
 
   echo "==================================================================================="
   create_resource_group
@@ -362,7 +396,7 @@ createhost() {
     echo "Provisioning $HOST_TYPE : Starting: $(date)"
     provision_linux_active_gate $HOST_CTR
     ;;
-  *) 
+  *)
     echo "Invalid HOST_TYPE option: $HOST_TYPE"
     break
     ;;
