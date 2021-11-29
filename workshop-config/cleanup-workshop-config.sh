@@ -6,6 +6,8 @@ run_monaco_delete() {
     # run monaco as code script
     PROJECT_BASE_PATH=./monaco-files/projects
     PROJECT=$1
+    #MONACO_PROJECT=$1
+    DASHBOARD_OWNER=$2
     ENVIONMENT_FILE=./monaco-files/environments.yaml
 
     echo "-------------------------------------------------------------------"
@@ -42,6 +44,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     run_monaco_delete k8
     run_monaco_delete services-vm
     run_monaco_delete synthetics
+    run_monaco_delete db
 
     reset_custom_dynatrace_config
 
