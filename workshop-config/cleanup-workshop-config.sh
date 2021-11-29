@@ -5,9 +5,9 @@ source ./_workshop-config.lib
 run_monaco_delete() {
     # run monaco as code script
     PROJECT_BASE_PATH=./monaco-files/projects
-    PROJECT=$1
-    #MONACO_PROJECT=$1
-    DASHBOARD_OWNER=$2
+    PROJECT=$1    
+    CREDS_FILE="../gen/workshop-credentials.json"    
+    DASHBOARD_OWNER=$(cat $CREDS_FILE | jq -r '.DT_DASHBOARD_OWNER_EMAIL')
     ENVIONMENT_FILE=./monaco-files/environments.yaml
 
     echo "-------------------------------------------------------------------"
@@ -42,9 +42,9 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     run_monaco_delete workshop
     run_monaco_delete k8
-    run_monaco_delete services-vm
-    run_monaco_delete synthetics
-    run_monaco_delete db
+    #run_monaco_delete services-vm
+    #run_monaco_delete synthetics
+    run_monaco_delete db $DASHBOARD_OWNER_EMAIL
 
     reset_custom_dynatrace_config
 
