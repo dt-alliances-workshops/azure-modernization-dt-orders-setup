@@ -97,7 +97,9 @@ setup_workshop_config()
 }
 
 echo "==================================================================="
-echo "About to Provision Workshop - $SETUP_TYPE"
+echo "About to Provision Workshop" 
+echo "Dynatrace Managed Server:$DT_BASEURL"
+echo "Setup Type: $SETUP_TYPE"
 echo "==================================================================="
 read -p "Proceed? (y/n) : " REPLY;
 if [ "$REPLY" != "y" ]; then exit 0; fi

@@ -5,6 +5,8 @@ source ./_workshop-config.lib
 # optional argument.  If not based, then the base workshop is setup.
 # setup types are for additional features like kubernetes
 SETUP_TYPE=$1
+DASHBOARD_OWNER_EMAIL=$2    # This is required for the dashboard monaco project
+                            # Otherwise it is not required
 
 MONACO_PROJECT_BASE_PATH=./monaco-files/projects
 MONACO_ENVIONMENT_FILE=./monaco-files/environments.yaml
@@ -119,7 +121,7 @@ run_custom_dynatrace_config() {
 
 echo ""
 echo "-----------------------------------------------------------------------------------"
-echo "Setting up Workshop config"
+echo "Setting up Workshop config for type: $SETUP_TYPE"
 echo "Dynatrace  : $DT_BASEURL"
 echo "Starting   : $(date)"
 echo "-----------------------------------------------------------------------------------"
@@ -168,6 +170,6 @@ esac
  
 echo ""
 echo "-----------------------------------------------------------------------------------"
-echo "Done Setting up Workshop config"
+echo "Done Setting up Workshop config for type - $SETUP_TYPE"
 echo "End: $(date)"
 echo "-----------------------------------------------------------------------------------"
