@@ -5,6 +5,8 @@ source ./_workshop-config.lib
 # optional argument.  If not based, then the base workshop is setup.
 # setup types are for additional features like kubernetes
 SETUP_TYPE=$1
+DASHBOARD_OWNER_EMAIL=$2    # This is required for the dashboard monaco project
+                            # Otherwise it is not required
 
 MONACO_PROJECT_BASE_PATH=./monaco-files/projects
 MONACO_ENVIONMENT_FILE=./monaco-files/environments.yaml
@@ -82,6 +84,19 @@ download_monaco() {
 }
 
 run_monaco() {
+    #auto provivision changes begin
+    MONACO_PROJECT=$1
+    DASHBOARD_OWNER=$2
+
+    if [ -z $DASHBOARD_OWNER ]; then
+        # need to do this so that the monaco valdiation does not fail
+        # even though you are not running the dashboard project, monaco
+        # still valdiates all the projects in the projects folders
+        export OWNER=DUMMY_PLACEHOLDER
+    else
+        export OWNER=$DASHBOARD_OWNER_EMAIL
+    fi
+    #auto provision change end
     if [ -z "$1" ]; then
         MONACO_PROJECT=workshop
     else
@@ -106,7 +121,7 @@ run_custom_dynatrace_config() {
 
 echo ""
 echo "-----------------------------------------------------------------------------------"
-echo "Setting up Workshop config"
+echo "Setting up Workshop config for type: $SETUP_TYPE"
 echo "Dynatrace  : $DT_BASEURL"
 echo "Starting   : $(date)"
 echo "-----------------------------------------------------------------------------------"
@@ -130,6 +145,16 @@ case "$SETUP_TYPE" in
         echo "Setup type = synthetics"
         run_monaco synthetics
         ;;
+    "dashboard")
+        if [ -z $DASHBOARD_OWNER_EMAIL ]; then
+            echo "ABORT dashboard owner email is required argument"
+            echo "syntax: ./setup-workshop-config.sh dashboard name@company.com"
+            exit 1
+        else
+            echo "Setup type = dashboard"
+            run_monaco db $DASHBOARD_OWNER_EMAIL
+        fi
+        ;;
     *) 
         echo "Setup type = base workshop"
         download_monaco
@@ -145,6 +170,6 @@ esac
  
 echo ""
 echo "-----------------------------------------------------------------------------------"
-echo "Done Setting up Workshop config"
+echo "Done Setting up Workshop config for type - $SETUP_TYPE"
 echo "End: $(date)"
 echo "-----------------------------------------------------------------------------------"
