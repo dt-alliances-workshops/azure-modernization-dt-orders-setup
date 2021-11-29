@@ -1,0 +1,6 @@
+delete:
+  - "auto-tag/project"
+  - "auto-tag/service"
+  - "auto-tag/stage"
+  - "management-zone/dt-orders-monolith"
+  - "slo/DT-Orders Monolith Error Rate"

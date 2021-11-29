@@ -5,7 +5,8 @@ source ./_workshop-config.lib
 # optional argument.  If not based, then the base workshop is setup.
 # setup types are for additional features like kubernetes
 SETUP_TYPE=$1
-
+DASHBOARD_OWNER_EMAIL=$2    # This is required for the dashboard monaco project
+                            # Otherwise it is not required
 MONACO_PROJECT_BASE_PATH=./monaco-files/projects
 MONACO_ENVIONMENT_FILE=./monaco-files/environments.yaml
 
@@ -82,6 +83,8 @@ download_monaco() {
 }
 
 run_monaco() {
+    MONACO_PROJECT=$1
+    DASHBOARD_OWNER=$2
     if [ -z "$1" ]; then
         MONACO_PROJECT=workshop
     else
@@ -113,33 +116,59 @@ echo "--------------------------------------------------------------------------
 echo ""
 
 case "$SETUP_TYPE" in
-    "k8") 
-        echo "Setup type = k8"
+    "cluster") 
+        echo "Setup type = cluster"
         download_monaco
-        run_monaco k8
+        run_monaco cluster
+        echo "-----------------------------------------------------------------------------------"
         echo "Sometimes a timing issue with SLO creation, so will repeat in 10 seconds"
+        echo "-----------------------------------------------------------------------------------"
         sleep 10
-        run_monaco k8
+        run_monaco cluster
         ;;
     "services-vm") 
         echo "Setup type = services-vm"
         download_monaco
         run_monaco services-vm
+        echo "-----------------------------------------------------------------------------------"
+        echo "Sometimes a timing issue with SLO creation, so will repeat in 10 seconds"
+        echo "-----------------------------------------------------------------------------------"
+        sleep 10
+        run_monaco services-vm
+        run_custom_dynatrace_config
         ;;
     "synthetics") 
         echo "Setup type = synthetics"
         run_monaco synthetics
         ;;
-    *) 
-        echo "Setup type = base workshop"
+    "dashboard") 
+        if [ -z $DASHBOARD_OWNER_EMAIL ]; then
+            echo "ABORT dashboard owner email is required argument"
+            echo "syntax: ./setup-workshop-config.sh dashboard name@company.com"
+            exit 1
+        else
+            echo "Setup type = dashboard"
+            run_monaco db $DASHBOARD_OWNER_EMAIL
+        fi
+        ;;
+    "monolith-vm")
+        echo "Setup type = monolith-vm"
         download_monaco
-        # you can comment this line out if you dont have permissions
-        create_service_principal_monaco_config
-        run_monaco
+        run_monaco monolith-vm
+        echo "-----------------------------------------------------------------------------------"
         echo "Sometimes a timing issue with SLO creation, so will repeat in 10 seconds"
+        echo "-----------------------------------------------------------------------------------"
         sleep 10
-        run_monaco
+        run_monaco monolith-vm
         run_custom_dynatrace_config
+        ;;
+    *)
+        echo ""
+        echo "-----------------------------------------------------------------------------------"
+        echo "ERROR: Missing or invalid SETUP_TYPE argument"
+        echo "Valid values are: monolith-vm, services-vm, cluster, dashboard"
+        echo ""
+        exit 1
         ;;
 esac
  
