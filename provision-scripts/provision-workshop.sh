@@ -114,6 +114,7 @@ case "$SETUP_TYPE" in
         echo "Setup type = $SETUP_TYPE"
         setup_workshop_config k8
         create_aks_cluster
+        ./makedynakube.sh:
         ;;
     "services-vm")
         echo "Setup type = $SETUP_TYPE"
@@ -131,13 +132,14 @@ case "$SETUP_TYPE" in
         #setup_workshop_config       
         create_aks_cluster
         setup_workshop_config
+        ./makedynakube.sh
         ;;
     *)
         echo "Setup type = base workshop"
         createhost active-gate
         createhost monolith
         create_azure_service_principal
-        setup_workshop_config
+        setup_workshop_config        
         ;;
 esac
 
