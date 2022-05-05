@@ -1,3 +1,5 @@
+#!/bin/bash
+
 create_dynakube()
 {
   # reference: https://www.dynatrace.com/support/help/technology-support/container-platforms/kubernetes/monitor-kubernetes-environments/
