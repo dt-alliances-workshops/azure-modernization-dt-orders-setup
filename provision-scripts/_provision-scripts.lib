@@ -127,7 +127,7 @@ create_azure_service_principal()
       --name "$AZURE_SP_NAME" \
       --role reader \
       --scopes "/subscriptions/$AZURE_SUBSCRIPTION" \
-      --only-show-errors
+      --only-show-errors \
       > "$AZURE_SP_JSON_FILE"
 
   echo "Sleeping 10 seconds to allow for Azure subscription creation"
@@ -421,9 +421,9 @@ register_azure_opsmgmt_resource_provider()
 
 echo "==================================================================================="
 if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
-    echo ""    
+    echo "Microsoft.OperationsManagement ResourceProvider at Subscription level not found..."    
     echo "Registering Microsoft.OperationsManagement Resource Provider at the Subscription for provisioning of AKS cluster"
-    REGISTOR_RESOURCE_PROVIDER=$(az provider register --namespace 'Microsoft.OperationsManagement')
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.OperationsManagement')
   else
     echo "Resource  Provider Microsoft.OperationsManagement is already registered at the subscription, moving to next task...."    
   fi
