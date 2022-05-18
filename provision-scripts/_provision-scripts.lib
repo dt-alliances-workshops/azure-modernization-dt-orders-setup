@@ -114,19 +114,20 @@ create_azure_service_principal()
 
   # delete sp if it exists
   echo "Seeing if $AZURE_SP_NAME exists in Azure"
-  ID=$(az ad sp list --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
+  ID=$(az ad sp list --only-show-errors --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
   if ! [ -z "$ID" ]; then
       echo "Deleting existing $AZURE_SP_NAME within Azure"
-      az ad sp delete --id $ID
+      az ad sp delete --only-show-errors --id $ID
   else
       echo "$AZURE_SP_NAME did not exist in Azure"
   fi
 
   echo "Adding $AZURE_SP_NAME to Azure and sending output to $AZURE_SP_JSON_FILE"
   az ad sp create-for-rbac \
-      --name "http://$AZURE_SP_NAME" \
+      --name "$AZURE_SP_NAME" \
       --role reader \
       --scopes "/subscriptions/$AZURE_SUBSCRIPTION" \
+      --only-show-errors \
       > "$AZURE_SP_JSON_FILE"
 
   echo "Sleeping 10 seconds to allow for Azure subscription creation"
@@ -141,10 +142,10 @@ delete_azure_service_principal()
 
   # delete sp if it exists
   echo "Seeing if $AZURE_SP_NAME exists in Azure"
-  ID=$(az ad sp list --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
+  ID=$(az ad sp list --only-show-errors --query [] --filter "displayname eq '$AZURE_SP_NAME'" --query [].appId -o tsv)
   if ! [ -z "$ID" ]; then
       echo "Deleting existing $AZURE_SP_NAME within Azure"
-      az ad sp delete --id $ID
+      az ad sp delete --only-show-errors --id $ID
   else
       echo "$AZURE_SP_NAME did not exist in Azure"
   fi
@@ -403,4 +404,28 @@ createhost() {
   esac
   echo "*** Done. $(date) ***"
   echo "==================================================================================="
+}
+
+does_opsmgmt_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.OperationsManagement'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_opsmgmt_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.OperationsManagement ResourceProvider at Subscription level not found..."    
+    echo "Registering Microsoft.OperationsManagement Resource Provider at the Subscription for provisioning of AKS cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.OperationsManagement')
+  else
+    echo "Resource  Provider Microsoft.OperationsManagement is already registered at the subscription, moving to next task...."    
+  fi
+
 }

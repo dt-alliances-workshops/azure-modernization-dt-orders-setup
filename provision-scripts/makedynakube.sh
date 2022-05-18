@@ -7,14 +7,24 @@ create_dynakube()
   DYNAKUBE_TEMPLATE_FILE="dynakube.yaml.template"
   DYNAKUBE_GEN_FILE="../gen/dynakube.yaml"
 
+if [ -f "$DYNAKUBE_GEN_FILE" ]
+then
+  rm -rf $DYNAKUBE_GEN_FILE
+  DT_API_TOKEN_ENCODED=$(echo -n $DT_API_TOKEN | base64 -w 0)
+  cat $DYNAKUBE_TEMPLATE_FILE | \
+  sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN_ENCODED"'~' | \
+  sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' | \
+  sed 's~AZURE_AKS_CLUSTER_NAME_PLACEHOLDER~'"$AZURE_AKS_CLUSTER_NAME"'~' >> $DYNAKUBE_GEN_FILE
+else
   # create new file from the template with learner Dynatrace tenant information
   DT_API_TOKEN_ENCODED=$(echo -n $DT_API_TOKEN | base64 -w 0)
   cat $DYNAKUBE_TEMPLATE_FILE | \
-    sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN_ENCODED"'~' | \
-    sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' | \
-    sed 's~AZURE_AKS_CLUSTER_NAME_PLACEHOLDER~'"$AZURE_AKS_CLUSTER_NAME"'~' >> $DYNAKUBE_GEN_FILE
+  sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN_ENCODED"'~' | \
+  sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' | \
+  sed 's~AZURE_AKS_CLUSTER_NAME_PLACEHOLDER~'"$AZURE_AKS_CLUSTER_NAME"'~' >> $DYNAKUBE_GEN_FILE
+fi
 
-  #chmod +x $DYNAKUBE_GEN_FILE
+  
   echo "Saved dynatrace operator secrets file to: $DYNAKUBE_GEN_FILE"
 }
 

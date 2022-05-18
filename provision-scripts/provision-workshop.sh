@@ -113,8 +113,11 @@ echo "=========================================="
 case "$SETUP_TYPE" in
     "k8")
         echo "Setup type = $SETUP_TYPE"
-        setup_workshop_config k8
+        make_creds_file
+        # contains functions called in this script
+        source ./_provision-scripts.lib
         create_aks_cluster
+        setup_workshop_config k8        
         ./makedynakube.sh:
         ;;
     "services-vm")
@@ -127,10 +130,10 @@ case "$SETUP_TYPE" in
         make_creds_file
         # contains functions called in this script
         source ./_provision-scripts.lib
+        register_azure_opsmgmt_resource_provider
         createhost active-gate
         createhost monolith
-        create_azure_service_principal
-        #setup_workshop_config       
+        create_azure_service_principal        
         create_aks_cluster
         setup_workshop_config
         ./makedynakube.sh
