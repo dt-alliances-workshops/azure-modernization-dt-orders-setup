@@ -14,7 +14,8 @@ metadata:
   name: AZURE_AKS_CLUSTER_NAME_PLACEHOLDER
   namespace: dynatrace
   annotations:
-    alpha.operator.dynatrace.com/feature-automatic-kubernetes-api-monitoring: "true"
+    feature.dynatrace.com/automatic-kubernetes-api-monitoring: "true"
+    feature.dynatrace.com/enable-activegate-authtoken: "true"
 spec:
   # Dynatrace apiUrl including the `/api` path at the end.
   # For SaaS, set `YOUR_ENVIRONMENT_ID` to your environment ID.
@@ -85,6 +86,9 @@ spec:
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
           operator: Exists
 
       # Optional: resource settings for OneAgent container. Consumption of the OneAgent heavily depends
@@ -158,13 +162,13 @@ spec:
     #
     # Suggested starting point for resources below:
     #
-    # resources:
-    #   requests:
-    #     cpu: 150m
-    #     memory: 250M
-    #   limits:
-    #     cpu: 300m
-    #     memory: 1G
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1.5Gi
 
     # Optional: labels are customer defined labels for ActiveGate Pods to structure workloads as desired.
     #

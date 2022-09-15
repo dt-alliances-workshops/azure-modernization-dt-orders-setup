@@ -73,10 +73,10 @@ setServicesVersion() {
 
   if [ "$SERVICE" = "order" ]; then
     TAG_SERVICE=order-service
-    TAG_STAGE=dev
+    TAG_STAGE=staging
   elif [ "$SERVICE" = "customer" ]; then
     TAG_SERVICE=customer-service
-    TAG_STAGE=dev
+    TAG_STAGE=staging
   elif [ "$SERVICE" = "backend" ]; then
     TAG_SERVICE=backend
     TAG_STAGE=production
@@ -98,6 +98,7 @@ setServicesVersion() {
     if [ "$TAG_STAGE" = "production" ]; then
       getMonolithPublicIP
       PUBLIC_IP=$PUBLIC_IP_MONOLITH
+      TAG_PROCESS_GROUP="monolith-$SERVICE"
     elif [ "$TAG_STAGE" = "staging" ]; then
       getk8FrontEndPublicIP
       if [ -z $PUBLIC_IP_k8 ]; then
@@ -105,6 +106,7 @@ setServicesVersion() {
         exit 1
       fi
       PUBLIC_IP=$PUBLIC_IP_k8
+      TAG_PROCESS_GROUP=$TAG_STAGE-$SERVICE
     else
       getServicesPublicIP
       PUBLIC_IP=$PUBLIC_IP_SERVICES
@@ -143,8 +145,9 @@ pushDeploymentEvent() {
   CI_BACK_LINK=$5
 
   TAG_PROJECT=$DEPLOYMENT_PROJECT
-  DT_API_URL="$DT_BASEURL/api/v1/events"
+  DT_API_URL="$DT_BASEURL/api/v2/events/ingest"
   DEPLOYMENT_NAME="Set $TAG_SERVICE to version $DEPLOYMENT_VERSION"
+  CURRENTTIME=$(date +%s%N | cut -b1-13)
 
   echo "================================================================="
   echo "Sending Dynatrace Deployment event"
@@ -157,38 +160,22 @@ pushDeploymentEvent() {
   POST_DATA=$(cat <<EOF
   {
       "eventType" : "CUSTOM_DEPLOYMENT",
+      "title" : "Deploy version $DEPLOYMENT_VERSION for $DEPLOYMENT_PROJECT $TAG_SERVICE ",
       "source" : "Custom Unix Shell Script" ,
-      "deploymentName" : "$DEPLOYMENT_NAME",
-      "deploymentVersion" : "$DEPLOYMENT_VERSION"  ,
-      "deploymentProject" : "$DEPLOYMENT_PROJECT" ,
-      "ciBackLink" : "$CI_BACK_LINK",
-      "customProperties": {
-          "Example Custom Property 1" : "Example Custom Value 1",
-          "Example Custom Property 2" : "Example Custom Value 2",
-          "Example Custom Property 3" : "Example Custom Value 3"
-      },
-      "attachRules" : {
-            "tagRule" : [
-                {
-                  "meTypes":["PROCESS_GROUP_INSTANCE"],
-                  "tags": [
-                      {
-                            "context": "CONTEXTLESS",
-                            "key": "service",
-                              "value": "$TAG_SERVICE"
-                      },
-                          {
-                            "context": "CONTEXTLESS",
-                            "key": "project",
-                              "value": "$TAG_PROJECT"
-                      },
-                          {
-                            "context": "CONTEXTLESS",
-                            "key": "stage",
-                              "value": "$TAG_STAGE"
-                      }
-            ]}
-          ]}
+      "deploymentVersion" : "$DEPLOYMENT_VERSION" ,
+      "entitySelector": "type(PROCESS_GROUP_INSTANCE),entityName($TAG_PROCESS_GROUP)",
+      "properties": {
+    			"deploymentName" : "$DEPLOYMENT_NAME",
+    			"deploymentProject" : "$DEPLOYMENT_PROJECT",
+    			"deploymentVersion" : "$DEPLOYMENT_VERSION",
+			"ciBackLink" : "$CI_BACK_LINK",
+		        "Version" : "$DEPLOYMENT_VERSION",
+	                "Source" : "Github",
+			"Project" : "$DEPLOYMENT_PROJECT",
+                        "commitRef": "master",
+			"commitUser": "nobody@dynatrace.com",
+			"release Notes" : "test release notes info"
+      }
         }
   }
 EOF

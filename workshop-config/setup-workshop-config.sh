@@ -72,9 +72,9 @@ create_service_principal_monaco_config() {
 download_monaco() {
     if [ $(uname -s) == "Darwin" ]
     then
-        MONACO_BINARY="v1.6.0/monaco-darwin-10.12-amd64"
+        MONACO_BINARY="v1.8.3/monaco-darwin-10.12-amd64"
     else
-        MONACO_BINARY="v1.6.0/monaco-linux-amd64"
+        MONACO_BINARY="v1.8.3/monaco-linux-amd64"
     fi
     echo "Getting MONACO_BINARY = $MONACO_BINARY"
     rm -f monaco
