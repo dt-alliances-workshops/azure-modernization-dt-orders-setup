@@ -87,7 +87,7 @@ echo "--------------------------------------------------"
 echo "Azure Resource Group     : $AZURE_RESOURCE_GROUP"
 echo "Azure Cluster Name       : $AZURE_AKS_CLUSTER_NAME"
 echo "Dynatrace Environment ID : $DT_ENVIRONMENT_ID"
-echo "Your email               : $EMAL"
+echo "Your email               : $EMAIL"
 echo "==================================================================="
 read -p "Is this all correct? (y/n) : " REPLY;
 if [ "$REPLY" != "y" ]; then exit 0; fi
