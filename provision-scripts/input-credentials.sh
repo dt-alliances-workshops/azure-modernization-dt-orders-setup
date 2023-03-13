@@ -18,6 +18,12 @@ then
     RESOURCE_PREFIX=$(cat $CREDS_FILE | jq -r '.RESOURCE_PREFIX')
 fi
 
+if [ -z "$AZURE_SUBSCRIPTION" ]; then
+    AZURE_SUBSCRIPTION_ID=$(az account list --all --query "[?isDefault].id" --output tsv)
+    AZURE_SUBSCRIPTION_NAME=$(az account list --all --query "[?isDefault].name" --output tsv)
+    AZURE_SUBSCRIPTION=$AZURE_SUBSCRIPTION_ID
+fi
+
 clear
 echo "==================================================================="
 echo -e "${YLW}Please enter your Dynatrace credentials as requested below: ${NC}"
@@ -26,7 +32,7 @@ echo "==================================================================="
 read -p "Your last name           (current: $RESOURCE_PREFIX) : " RESOURCE_PREFIX_NEW
 echo    "Dynatrace Base URL       (ex. https://ABC.live.dynatrace.com) "
 read -p "                         (current: $DT_BASEURL) : " DT_BASEURL_NEW
-read -p "Dynatrace PaaS Token     (current: $DT_PAAS_TOKEN) : " DT_PAAS_TOKEN_NEW
+#read -p "Dynatrace PaaS Token     (current: $DT_PAAS_TOKEN) : " DT_PAAS_TOKEN_NEW
 read -p "Dynatrace API Token      (current: $DT_API_TOKEN) : " DT_API_TOKEN_NEW
 read -p "Azure Subscription ID    (current: $AZURE_SUBSCRIPTION) : " AZURE_SUBSCRIPTION_NEW
 echo "==================================================================="
@@ -41,8 +47,11 @@ AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP_NEW:-$AZURE_RESOURCE_GROUP}
 AZURE_SUBSCRIPTION=${AZURE_SUBSCRIPTION_NEW:-$AZURE_SUBSCRIPTION}
 AZURE_LOCATION=${AZURE_LOCATION_NEW:-$AZURE_LOCATION}
 # append a prefix to resource group
-AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-azure-modernize-workshop"
-AZURE_AKS_CLUSTER_NAME="$RESOURCE_PREFIX-azure-modernize-cluster"
+#AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-azure-modernize-workshop"
+#AZURE_AKS_CLUSTER_NAME="$RESOURCE_PREFIX-azure-modernize-cluster"
+AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-dynatrace-azure-modernize-wth"
+AZURE_AKS_CLUSTER_NAME="dynatrace-azure-wth-cluster"
+EMAIL=$(az account show --query user.name --output tsv)
 
 # pull out the DT_ENVIRONMENT_ID. DT_BASEURL will be one of these patterns
 if [[ $(echo $DT_BASEURL | grep "/e/" | wc -l) == *"1"* ]]; then
@@ -69,7 +78,7 @@ echo -e "Please confirm all are correct:"
 echo "--------------------------------------------------"
 echo "Your last name           : $RESOURCE_PREFIX"
 echo "Dynatrace Base URL       : $DT_BASEURL"
-echo "Dynatrace PaaS Token     : $DT_PAAS_TOKEN"
+#echo "Dynatrace PaaS Token     : $DT_PAAS_TOKEN"
 echo "Dynatrace API Token      : $DT_API_TOKEN"
 echo "Azure Subscription ID    : $AZURE_SUBSCRIPTION"
 echo "--------------------------------------------------"
@@ -78,6 +87,7 @@ echo "--------------------------------------------------"
 echo "Azure Resource Group     : $AZURE_RESOURCE_GROUP"
 echo "Azure Cluster Name       : $AZURE_AKS_CLUSTER_NAME"
 echo "Dynatrace Environment ID : $DT_ENVIRONMENT_ID"
+echo "Your email               : $EMAL"
 echo "==================================================================="
 read -p "Is this all correct? (y/n) : " REPLY;
 if [ "$REPLY" != "y" ]; then exit 0; fi
@@ -97,6 +107,7 @@ cat $CREDS_TEMPLATE_FILE | \
   sed 's~DT_ENVIRONMENT_ID_PLACEHOLDER~'"$DT_ENVIRONMENT_ID"'~' | \
   sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' | \
   sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN"'~' | \
+  sed 's~EMAIL_PLACEHOLDER~'"$EMAIL"'~' | \
   sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' > $CREDS_FILE
 
 echo "Saved credential to: $CREDS_FILE"
