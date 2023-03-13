@@ -19,11 +19,18 @@ DT_API_TOKEN=$3
 DASHBOARD_OWNER_EMAIL=$4  # required is making monaco dashboards SETUP_TYPE=all.
                           # Otherwise optional or any "dummy" value if you need to pass
 
+if [ "$SETUP_TYPE" == "wth" ]; then
+  source ./_provision-scripts.lib
+  PROVISION_MSG="About to setup What the Hack\nDynatrace Server: "$DT_BASEURL
+  else
+    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+fi
 
 
-if [ -z $DT_BASEURL ]; then
-  echo "ABORT: missing DT_BASEURL parameter"
-  exit 1
+if [ -z $DT_BASEURL ]; then  
+    echo "ABORT: missing DT_BASEURL parameter"
+    exit 1
+  fi
 fi
 
 if [ -z $DT_API_TOKEN ]; then
@@ -100,8 +107,9 @@ setup_workshop_config()
 }
 
 echo "==================================================================="
-echo "About to Provision Workshop" 
-echo "Dynatrace Managed Server:$DT_BASEURL"
+#echo "About to Provision Workshop" 
+#echo "Dynatrace Managed Server:$DT_BASEURL"
+echo -e $PROVISION_MSG
 echo "Setup Type: $SETUP_TYPE"
 echo "==================================================================="
 read -p "Proceed? (y/n) : " REPLY;

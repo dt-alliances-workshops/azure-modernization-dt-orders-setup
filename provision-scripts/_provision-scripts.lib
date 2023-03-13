@@ -14,7 +14,7 @@ then
     AZURE_LOCATION=$(cat $CREDS_FILE | jq -r '.AZURE_LOCATION')
     RESOURCE_PREFIX=$(cat $CREDS_FILE | jq -r '.RESOURCE_PREFIX')
     AZURE_AKS_CLUSTER_NAME=$(cat $CREDS_FILE | jq -r '.AZURE_AKS_CLUSTER_NAME')
-
+    EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
 else
   echo "ABORT: CREDS_FILE: $CREDS_FILE not found"
   exit 1
