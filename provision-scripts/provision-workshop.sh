@@ -10,18 +10,27 @@
 #
 
 #auto provision changes begin #
-DT_BASEURL=$1
-DT_API_TOKEN=$2
-DASHBOARD_OWNER_EMAIL=$3  # required is making monaco dashboards SETUP_TYPE=all.
-                          # Otherwise optional or any "dummy" value if you need to pass
-                          # in SETUP_TYPE and KEYPAIR_NAME parameters
-SETUP_TYPE=$4             # optional argument. values are: all, monolith-vm, services-vm.  default is all
+SETUP_TYPE=$1             # in SETUP_TYPE and KEYPAIR_NAME parameters
+                          # optional argument. values are: all, monolith-vm, services-vm.  default is all
                           # this allows to just recreate the cloudformation stack is one VM stack fails
                           # this allows to override for testing outside of AWS event engine account
+DT_BASEURL=$2
+DT_API_TOKEN=$3
+DASHBOARD_OWNER_EMAIL=$4  # required is making monaco dashboards SETUP_TYPE=all.
+                          # Otherwise optional or any "dummy" value if you need to pass
 
-if [ -z $DT_BASEURL ]; then
-  echo "ABORT: missing DT_BASEURL parameter"
-  exit 1
+if [ "$SETUP_TYPE" == "wth" ]; then
+  source ./_provision-scripts.lib
+  PROVISION_MSG="About to setup Dynatrace ""What the Hack""\nDynatrace Server: "$DT_BASEURL
+  else
+    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+fi
+
+
+if [ -z $DT_BASEURL ]; then  
+    echo "ABORT: missing DT_BASEURL parameter"
+    exit 1
+  
 fi
 
 if [ -z $DT_API_TOKEN ]; then
@@ -98,8 +107,9 @@ setup_workshop_config()
 }
 
 echo "==================================================================="
-echo "About to Provision Workshop" 
-echo "Dynatrace Managed Server:$DT_BASEURL"
+#echo "About to Provision Workshop" 
+#echo "Dynatrace Managed Server:$DT_BASEURL"
+echo -e $PROVISION_MSG
 echo "Setup Type: $SETUP_TYPE"
 echo "==================================================================="
 read -p "Proceed? (y/n) : " REPLY;
@@ -128,6 +138,18 @@ case "$SETUP_TYPE" in
     "all")
         echo "Setup type = $SETUP_TYPE"
         make_creds_file
+        # contains functions called in this script
+        source ./_provision-scripts.lib
+        register_azure_opsmgmt_resource_provider
+        createhost active-gate
+        createhost monolith
+        create_azure_service_principal        
+        create_aks_cluster
+        setup_workshop_config
+        ./makedynakube.sh
+        ;;
+    "wth")
+        echo "Setup type = $SETUP_TYPE"        
         # contains functions called in this script
         source ./_provision-scripts.lib
         register_azure_opsmgmt_resource_provider

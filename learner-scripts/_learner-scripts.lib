@@ -143,6 +143,7 @@ pushDeploymentEvent() {
   TAG_SERVICE=$3
   DEPLOYMENT_VERSION=$4
   CI_BACK_LINK=$5
+  EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
 
   TAG_PROJECT=$DEPLOYMENT_PROJECT
   DT_API_URL="$DT_BASEURL/api/v2/events/ingest"
@@ -168,13 +169,15 @@ pushDeploymentEvent() {
     			"deploymentName" : "$DEPLOYMENT_NAME",
     			"deploymentProject" : "$DEPLOYMENT_PROJECT",
     			"deploymentVersion" : "$DEPLOYMENT_VERSION",
-			"ciBackLink" : "$CI_BACK_LINK",
-		        "Version" : "$DEPLOYMENT_VERSION",
-	                "Source" : "Github",
-			"Project" : "$DEPLOYMENT_PROJECT",
-                        "commitRef": "master",
-			"commitUser": "nobody@dynatrace.com",
-			"release Notes" : "test release notes info"
+			    "ciBackLink" : "$CI_BACK_LINK",
+		      "Version" : "$DEPLOYMENT_VERSION",
+	        "Source" : "Github",
+			    "Project" : "$DEPLOYMENT_PROJECT",
+          "commitRef": "master",
+			    "commitUser": "$EMAIL",
+          "Approver" : "Alice McBright (alice.mcbright@dtorders.com)",
+          "Remediation" : "https://ansibletower.internal.example.com/job?id=9",
+			    "release Notes" : "test release notes info"
       }
         }
   }
