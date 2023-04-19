@@ -1,6 +1,6 @@
 # Overview
 
-The repo contains the setup and learner scripts to support [this Azure and Dynatrace workshop](http://azure-modernize-workshop.alliances.dynatracelabs.com/).
+The repo contains the setup and learner scripts to support this [Azure and Dynatrace workshop](https://learn.alliances.dynatracelabs.com/azure).
 
 <img src="dt-azure.png" width="400"/> 
 
@@ -28,6 +28,7 @@ Within the Azure console, they learner uses the Azure Cloud Shell to would provi
 * `./provision-workshop.sh` <setuptype> <dynatraceEnvUrl> <dynatraceAPIToken> <email address of user>
 * `cd ../learner-scripts`
 * `./show-app-urls.sh`
+* **Note:** If learner uses their own Azure subscription, then the learner must have Owner roles to the Azure subscription in order sucessfully run provisioning scripts for the workshop setup. 
 
 ## Instructor provided workshop environment
 
