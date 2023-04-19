@@ -23,8 +23,9 @@ In this use case, a learner needs to provide Dynatrace tenant and Azure subscrip
 Within the Azure console, they learner uses the Azure Cloud Shell to would provision the workshop following these steps:
 * `git clone https://github.com/dt-alliances-workshops/azure-modernization-dt-orders-setup.git` 
 * `cd azure-modernization-dt-orders-setup/provision-scripts/`
-* `./input-credentials.sh`
-* `./provision-workshop.sh`
+* `./input-credentials.sh` 
+*  **Note:**  Input Credentials is not used for automatic provisioning of Azure Workshops for customer.  In other workshop setup types, this script is used to query azure subscription info and other details.
+* `./provision-workshop.sh` <setuptype> <dynatraceEnvUrl> <dynatraceAPIToken> <email address of user>
 * `cd ../learner-scripts`
 * `./show-app-urls.sh`
 
@@ -32,9 +33,9 @@ Within the Azure console, they learner uses the Azure Cloud Shell to would provi
 
 In this use case, Dynatrace tenant and all the Azure resources would be pre-provisioned for the learner.
 
-The learner would use a provided Bastion host VM that has a web-based cloud SSH shell. The learned would not log into the Azure web console.
+The learned would not log into the Azure web console.
 
-On this Bastion VM, the workshop repo would already be cloned and the credentials file `/home/workshop/gen/workshop-credentials.json` would already exist and be populated with the information needed for their use. 
+On azure cloud shell window, the workshop repo would already be cloned and the credentials file `/home/workshop/gen/workshop-credentials.json` would already exist and be populated with the information needed for their use. 
 
 The learner would only then need to run any scripts in the `/home/workshop/learner-scripts/` folder.
 
@@ -50,4 +51,4 @@ Please ensure we have all the necessary information to effectively respond to yo
 
 # Maintainer
 
-[Rob Jahn](https://www.linkedin.com/in/robjahn/) -- Email me @ rob.jahn@dynatrace.com with questions or more details.
+[Rob Jahn](https://www.linkedin.com/in/jaygurbani/) -- Email me @ jay.gurbani@dynatrace.com with questions or more details.
