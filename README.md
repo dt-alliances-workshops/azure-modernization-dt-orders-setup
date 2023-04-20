@@ -52,4 +52,4 @@ Please ensure we have all the necessary information to effectively respond to yo
 
 # Maintainer
 
-[Rob Jahn](https://www.linkedin.com/in/jaygurbani/) -- Email me @ jay.gurbani@dynatrace.com with questions or more details.
+[Jay Gurbani](https://www.linkedin.com/in/jaygurbani/) -- Email me @ jay.gurbani@dynatrace.com with questions or more details.
