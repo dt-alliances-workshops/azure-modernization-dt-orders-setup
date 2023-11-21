@@ -14,8 +14,8 @@ run_monaco_delete() {
     echo "Deleting project: $PROJECT"
     echo "-------------------------------------------------------------------"
     cp $PROJECT_BASE_PATH/$PROJECT/delete.txt $PROJECT_BASE_PATH/delete.yaml 
-    export NEW_CLI=1 && export DT_BASEURL=$DT_BASEURL && export DT_API_TOKEN=$DT_API_TOKEN && ./monaco deploy -v --environments $ENVIONMENT_FILE --project $PROJECT $PROJECT_BASE_PATH
-    rm $PROJECT_BASE_PATH/delete.yaml 
+    export NEW_CLI=1 && export DT_BASEURL=$DT_BASEURL && export DT_API_TOKEN=$DT_API_TOKEN && export OWNER=$DASHBOARD_OWNER && ./monaco deploy --environments $ENVIONMENT_FILE --project $PROJECT $PROJECT_BASE_PATH
+    #rm $PROJECT_BASE_PATH/delete.yaml 
 }
 
 reset_custom_dynatrace_config() {
