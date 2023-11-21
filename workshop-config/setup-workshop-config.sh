@@ -72,15 +72,15 @@ create_service_principal_monaco_config() {
 download_monaco() {
     if [ $(uname -s) == "Darwin" ]
     then
-        MONACO_BINARY="v1.8.3/monaco-darwin-10.12-amd64"
+        MONACO_BINARY="v1.8.9/monaco-darwin-amd64"
     else
-        MONACO_BINARY="v1.8.3/monaco-linux-amd64"
+        MONACO_BINARY="v1.8.9/monaco-linux-amd64"
     fi
     echo "Getting MONACO_BINARY = $MONACO_BINARY"
     rm -f monaco
     wget -q -O monaco https://github.com/dynatrace-oss/dynatrace-monitoring-as-code/releases/download/$MONACO_BINARY
     chmod +x monaco
-    echo "Installed monaco version: $(./monaco --version | tail -1)"
+    echo "Installed Monaco Version: $(./monaco --version | tail -1)"
 }
 
 run_monaco() {
