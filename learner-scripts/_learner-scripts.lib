@@ -143,7 +143,7 @@ pushDeploymentEvent() {
   TAG_SERVICE=$3
   DEPLOYMENT_VERSION=$4
   CI_BACK_LINK=$5
-  EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
+  EMAIL=$(cat $CREDS_FILE | jq -r '.DT_DASHBOARD_OWNER_EMAIL')
 
   TAG_PROJECT=$DEPLOYMENT_PROJECT
   DT_API_URL="$DT_BASEURL/api/v2/events/ingest"
@@ -161,23 +161,20 @@ pushDeploymentEvent() {
   POST_DATA=$(cat <<EOF
   {
       "eventType" : "CUSTOM_DEPLOYMENT",
-      "title" : "Deploy version $DEPLOYMENT_VERSION for $DEPLOYMENT_PROJECT $TAG_SERVICE ",
-      "source" : "Custom Unix Shell Script" ,
-      "deploymentVersion" : "$DEPLOYMENT_VERSION" ,
+      "title" : "Deploy version $DEPLOYMENT_VERSION for $DEPLOYMENT_PROJECT $TAG_SERVICE ",      
       "entitySelector": "type(PROCESS_GROUP_INSTANCE),entityName($TAG_PROCESS_GROUP)",
       "properties": {
-    			"deploymentName" : "$DEPLOYMENT_NAME",
-    			"deploymentProject" : "$DEPLOYMENT_PROJECT",
-    			"deploymentVersion" : "$DEPLOYMENT_VERSION",
-			    "ciBackLink" : "$CI_BACK_LINK",
-		      "Version" : "$DEPLOYMENT_VERSION",
-	        "Source" : "Github",
-			    "Project" : "$DEPLOYMENT_PROJECT",
-          "commitRef": "master",
-			    "commitUser": "$EMAIL",
-          "Approver" : "Alice McBright (alice.mcbright@dtorders.com)",
-          "Remediation" : "https://ansibletower.internal.example.com/job?id=9",
-			    "release Notes" : "test release notes info"
+    			 "deploymentName" : "$DEPLOYMENT_NAME",
+            "deploymentProject" : "$DEPLOYMENT_PROJECT",
+            "dt.event.deployment.version": "$DEPLOYMENT_VERSION",
+            "dt.event.deployment.ci_back_link": "$CI_BACK_LINK",
+            "dt.event.deployment.release_stage": "$TAG_STAGE" ,
+            "commitRef": "master",
+            "commitUser": "$EMAIL",
+            "Approver" : "Alice McBright (alice.mcbright@dtorders.com)",
+            "source": "Custom Unix Shell Script" ,
+            "dt.event.deployment.remediation_action_link" : "https://ansibletower.internal.example.com/job?id=9",
+            "release Notes" : "test release notes info"
       }
         }
   }

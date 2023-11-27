@@ -243,7 +243,7 @@ provision_linux_active_gate()
   echo "#cloud-config" > $ACTIVATE_GATE_FILE
   echo "runcmd:" >> $ACTIVATE_GATE_FILE
   echo "  - wget -O /tmp/Dynatrace-ActiveGate-Linux-x86.sh \"$DT_BASEURL/api/v1/deployment/installer/gateway/unix/latest?arch=x86&flavor=default\" --header=\"Authorization:Api-Token $DT_PAAS_TOKEN\"" >> $ACTIVATE_GATE_FILE
-  echo "  - sudo /bin/sh /tmp/Dynatrace-ActiveGate-Linux-x86.sh" >> $ACTIVATE_GATE_FILE
+  echo "  - sudo /bin/bash /tmp/Dynatrace-ActiveGate-Linux-x86.sh" >> $ACTIVATE_GATE_FILE
   echo "" >> $ACTIVATE_GATE_FILE
 
   echo "Checking if $HOSTNAME already exists"
@@ -259,7 +259,7 @@ provision_linux_active_gate()
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
-      --image "UbuntuLTS" \
+      --image "Ubuntu2204" \
       --custom-data "$ACTIVATE_GATE_FILE" \
       --tags Owner=azure-modernize-workshop \
       --subscription "$AZURE_SUBSCRIPTION" \
@@ -268,7 +268,7 @@ provision_linux_active_gate()
       --admin-username azureuser \
       --admin-password Azureuser123# \
       --public-ip-sku Standard \
-      --size Standard_B1ms \
+      --size Standard_DS2_v2 \
       | jq -r '.powerState')"
 
     echo "VM State: $VM_STATE"
@@ -304,7 +304,7 @@ provision_monolith_vm()
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
-      --image UbuntuLTS \
+      --image Ubuntu2204 \
       --tags Owner=azure-modernize-workshop \
       --subscription "$AZURE_SUBSCRIPTION" \
       --location "$AZURE_LOCATION" \
@@ -312,7 +312,7 @@ provision_monolith_vm()
       --authentication-type password \
       --admin-username workshop \
       --admin-password Workshop123# \
-      --size Standard_E2_v3 \
+      --size Standard_DS2_v2 \
       --public-ip-sku Standard \
       | jq -r '.powerState')"
 
@@ -352,7 +352,7 @@ provision_services_vm()
     VM_STATE="$(az vm create \
       --name "$HOSTNAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
-      --image UbuntuLTS \
+      --image Ubuntu2204 \
       --tags Owner=azure-modernize-workshop \
       --subscription "$AZURE_SUBSCRIPTION" \
       --location "$AZURE_LOCATION" \
@@ -360,7 +360,7 @@ provision_services_vm()
       --authentication-type password \
       --admin-username workshop \
       --admin-password Workshop123# \
-      --size Standard_E2_v3 \
+      --size Standard_DS2_v2 \
       | jq -r '.powerState')"
 
     echo "VM State: $VM_STATE"
