@@ -108,7 +108,7 @@ run_monaco() {
 
     # add the --dry-run argument during testing
     export NEW_CLI=1 && export DT_BASEURL=$DT_BASEURL && export DT_API_TOKEN=$DT_API_TOKEN && \
-        ./monaco deploy -v \
+        ./monaco deploy \
         --environments $MONACO_ENVIONMENT_FILE \
         --project $MONACO_PROJECT \
         $MONACO_PROJECT_BASE_PATH
