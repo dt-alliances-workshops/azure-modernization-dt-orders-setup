@@ -429,3 +429,78 @@ if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
   fi
 
 }
+
+does_insights_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.insights'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_insights_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(does_insights_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.insights ResourceProvider at Subscription level not found..."    
+    echo "Registering Microsoft.insights Resource Provider at the Subscription for provisioning of AKS cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.insights')
+  else
+    echo "Resource  Provider Microsoft.OperationsManagement is already registered at the subscription, moving to next task...."    
+  fi
+
+}
+
+does_container_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.ContainerService'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_container_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(does_container_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.ContainerService ResourceProvider at Subscription level not found..."    
+    echo "Registering Microsoft.ContainerService Resource Provider at the Subscription for provisioning of AKS cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.ContainerService')
+  else
+    echo "Resource  Provider Microsoft.ContainerService is already registered at the subscription, moving to next task...."    
+  fi
+
+}
+
+does_storage_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.Storage'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_storage_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(does_storage_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.Storage ResourceProvider at Subscription level not found..."    
+    echo "Registering Microsoft.Storage Resource Provider at the Subscription for CloudShell"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.Storage')
+  else
+    echo "Resource  Provider Microsoft.Storage is already registered at the subscription, moving to next task...."    
+  fi
+
+}
+
+
+
