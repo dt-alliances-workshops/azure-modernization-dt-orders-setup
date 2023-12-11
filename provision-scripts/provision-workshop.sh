@@ -141,6 +141,9 @@ case "$SETUP_TYPE" in
         # contains functions called in this script
         source ./_provision-scripts.lib
         register_azure_opsmgmt_resource_provider
+        register_azure_container_resource_provider
+        register_azure_storage_resource_provider
+        register_azure_insights_resource_provider
         createhost active-gate
         createhost monolith
         create_azure_service_principal        
