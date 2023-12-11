@@ -502,5 +502,29 @@ if [ "$(does_storage_resource_provider_exist)" == "false" ]; then
 
 }
 
+does_opsinsight_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.OperationalInsights'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_opsinsight_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(does_opsinsight_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.OperationalInsights ResourceProvider at Subscription level not found..."    
+    echo "Registering Microsoft.OperationalInsights Resource Provider at the Subscription for AKS Cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.OperationalInsights')
+  else
+    echo "Resource  Provider Microsoft.OperationalInsights is already registered at the subscription, moving to next task...."    
+  fi
+
+}
+
 
 
