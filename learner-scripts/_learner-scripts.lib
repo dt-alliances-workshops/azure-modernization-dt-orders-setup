@@ -40,7 +40,7 @@ getServicesPublicIP() {
 showAppUrls() {
 
   getMonolithPublicIP
-  #getServicesPublicIP
+  getServicesPublicIP
   getk8FrontEndPublicIP
   
   echo ""
@@ -76,7 +76,7 @@ setServicesVersion() {
     TAG_STAGE=staging
   elif [ "$SERVICE" = "customer" ]; then
     TAG_SERVICE=customer-service
-    TAG_STAGE=staging
+    TAG_STAGE=services
   elif [ "$SERVICE" = "backend" ]; then
     TAG_SERVICE=backend
     TAG_STAGE=production
@@ -87,7 +87,7 @@ setServicesVersion() {
   elif [ "$SERVICE" = "k8-customer" ]; then
     SERVICE=customer
     TAG_SERVICE=customer-service
-    TAG_STAGE=staging
+    TAG_STAGE=services
   else
     echo "ERROR setServicesVersion(): missing or invalid SERVICE $SERVICE : must be value of [order,customer,k8-order,k8-customer or backend"
     echo "Required arguments are: SERVICE NEW_VERSION"
@@ -110,6 +110,7 @@ setServicesVersion() {
     else
       getServicesPublicIP
       PUBLIC_IP=$PUBLIC_IP_SERVICES
+      TAG_PROCESS_GROUP=dev-$SERVICE
     fi
     
     SET_VERSION_URL="http://$PUBLIC_IP/$SERVICE/setversion/$NEW_VERSION"
@@ -143,7 +144,7 @@ pushDeploymentEvent() {
   TAG_SERVICE=$3
   DEPLOYMENT_VERSION=$4
   CI_BACK_LINK=$5
-  EMAIL=$(cat $CREDS_FILE | jq -r '.DT_DASHBOARD_OWNER_EMAIL')
+  EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
 
   TAG_PROJECT=$DEPLOYMENT_PROJECT
   DT_API_URL="$DT_BASEURL/api/v2/events/ingest"
@@ -161,20 +162,23 @@ pushDeploymentEvent() {
   POST_DATA=$(cat <<EOF
   {
       "eventType" : "CUSTOM_DEPLOYMENT",
-      "title" : "Deploy version $DEPLOYMENT_VERSION for $DEPLOYMENT_PROJECT $TAG_SERVICE ",      
+      "title" : "Deploy version $DEPLOYMENT_VERSION for $DEPLOYMENT_PROJECT $TAG_SERVICE ",
       "entitySelector": "type(PROCESS_GROUP_INSTANCE),entityName($TAG_PROCESS_GROUP)",
       "properties": {
-    			 "deploymentName" : "$DEPLOYMENT_NAME",
-            "deploymentProject" : "$DEPLOYMENT_PROJECT",
-            "dt.event.deployment.version": "$DEPLOYMENT_VERSION",
-            "dt.event.deployment.ci_back_link": "$CI_BACK_LINK",
-            "dt.event.deployment.release_stage": "$TAG_STAGE" ,
-            "commitRef": "master",
-            "commitUser": "$EMAIL",
-            "Approver" : "Alice McBright (alice.mcbright@dtorders.com)",
-            "source": "Custom Unix Shell Script" ,
-            "dt.event.deployment.remediation_action_link" : "https://ansibletower.internal.example.com/job?id=9",
-            "release Notes" : "test release notes info"
+			"dt.event.deployment.name" : "$DEPLOYMENT_NAME",
+    			"dt.event.deployment.release_product" : "$DEPLOYMENT_PROJECT",
+			"dt.event.deployment.version": "$DEPLOYMENT_VERSION",
+			"dt.event.deployment.release_build_version": "123",
+			"gitcommit": "e5a6baac7eb",
+			"dt.event.deployment.ci_back_link": "$CI_BACK_LINK",
+			"dt.event.deployment.release_stage": "$TAG_STAGE" ,
+                        "commitRef": "master",
+			"commitUser": "$EMAIL",
+                        "Approver" : "Alice McBright (alice.mcbright@dtorders.com)",
+			"source": "Custom Unix Shell Script" ,
+                        "dt.event.deployment.remediation_action_link" : "https://ansibletower.internal.example.com/job?id=9",
+			"release Notes" : "test release notes info",
+			"dt.event.is_rootcause_relevant": true
       }
         }
   }

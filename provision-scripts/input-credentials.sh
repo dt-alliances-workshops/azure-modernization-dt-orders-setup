@@ -29,11 +29,12 @@ echo "==================================================================="
 echo -e "${YLW}Please enter your Dynatrace credentials as requested below: ${NC}"
 echo "Press <enter> to keep the current value"
 echo "==================================================================="
-read -p "Your last name           (current: $RESOURCE_PREFIX) : " RESOURCE_PREFIX_NEW
-echo    "Dynatrace Base URL       (ex. https://ABC.live.dynatrace.com) "
+#read -p "Your last name           (current: $RESOURCE_PREFIX) : " RESOURCE_PREFIX_NEW
+echo    "Dynatrace Base URL       (ex. https://ABC.apps.dynatrace.com) "
 read -p "                         (current: $DT_BASEURL) : " DT_BASEURL_NEW
-#read -p "Dynatrace PaaS Token     (current: $DT_PAAS_TOKEN) : " DT_PAAS_TOKEN_NEW
-read -p "Dynatrace API Token      (current: $DT_API_TOKEN) : " DT_API_TOKEN_NEW
+#read -p "Dynatrace PaaS Token    (current: $DT_PAAS_TOKEN) : " DT_PAAS_TOKEN_NEW
+echo    "Dynatrace Access API Token   (ex. dtco01.ABC1244213413213AADASDD) "  
+read -p "                         (current: $DT_ACCESS_API_TOKEN) : " DT_ACCESS_API_TOKEN_NEW
 read -p "Azure Subscription ID    (current: $AZURE_SUBSCRIPTION) : " AZURE_SUBSCRIPTION_NEW
 echo "==================================================================="
 echo ""
@@ -41,6 +42,7 @@ echo ""
 # set value to new input or default to current value
 RESOURCE_PREFIX=${RESOURCE_PREFIX_NEW:-$RESOURCE_PREFIX}
 DT_BASEURL=${DT_BASEURL_NEW:-$DT_BASEURL}
+DT_ACCESS_API_TOKEN=${DT_ACCESS_API_TOKEN_NEW:-$DT_ACCESS_API_TOKEN}
 DT_API_TOKEN=${DT_API_TOKEN_NEW:-$DT_API_TOKEN}
 DT_PAAS_TOKEN=${DT_PAAS_TOKEN_NEW:-$DT_PAAS_TOKEN}
 AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP_NEW:-$AZURE_RESOURCE_GROUP}
@@ -49,8 +51,9 @@ AZURE_LOCATION=${AZURE_LOCATION_NEW:-$AZURE_LOCATION}
 # append a prefix to resource group
 #AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-azure-modernize-workshop"
 #AZURE_AKS_CLUSTER_NAME="$RESOURCE_PREFIX-azure-modernize-cluster"
-AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-dynatrace-azure-modernize-wth"
-AZURE_AKS_CLUSTER_NAME="dynatrace-azure-wth-cluster"
+#AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-dynatrace-azure-modernize"
+AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize"
+AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster"
 EMAIL=$(az account show --query user.name --output tsv)
 
 # pull out the DT_ENVIRONMENT_ID. DT_BASEURL will be one of these patterns
@@ -60,33 +63,50 @@ if [[ $(echo $DT_BASEURL | grep "/e/" | wc -l) == *"1"* ]]; then
 elif [[ $(echo $DT_BASEURL | grep ".live." | wc -l) == *"1"* ]]; then
   #echo "Matched pattern: https://{your-environment-id}.live.dynatrace.com"
   DT_ENVIRONMENT_ID=$(echo $DT_BASEURL | awk -F"." '{ print $1 }' | awk -F"https://" '{ print $2 }')
+  DT_GEN2=true
 elif [[ $(echo $DT_BASEURL | grep ".sprint." | wc -l) == *"1"* ]]; then
   #echo "Matched pattern: https://{your-environment-id}.sprint.dynatracelabs.com"
   DT_ENVIRONMENT_ID=$(echo $DT_BASEURL | awk -F"." '{ print $1 }' | awk -F"https://" '{ print $2 }')
+elif [[ $(echo $DT_BASEURL | grep ".apps." | wc -l) == *"1"* ]]; then
+  DT_ENVIRONMENT_ID=$(echo $DT_BASEURL | awk -F"." '{ print $1 }' | awk -F"https://" '{ print $2 }')
+  DT_GEN3=true
 else
   echo "ERROR: No DT_ENVIRONMENT_ID pattern match to $DT_BASEURL"
   exit 1
 fi
 
+if $DT_GEN2 ; then
+   DT_BASEURL_GEN2="https://$DT_ENVIRONMENT_ID.live.dynatrace.com"
+fi
+if $DT_GEN3 ; then
+   DT_BASEURL_GEN3="https://$DT_ENVIRONMENT_ID.apps.dynatrace.com"
+fi
+
 #remove trailing / if the have it
 if [ "${DT_BASEURL: -1}" == "/" ]; then
-  echo "removing / from DT_BASEURL"
+  #echo "removing / from DT_BASEURL"
   DT_BASEURL="$(echo ${DT_BASEURL%?})"
 fi
 
+DT_TOKEN=$(curl --silent -X POST "https://$DT_ENVIRONMENT_ID.live.dynatrace.com/api/v2/apiTokens" -H "accept: application/json; charset=utf-8" -H "Content-Type: application/json; charset=utf-8" -d "{\"scopes\":[\"slo.read\",\"slo.write\",\"settings.read\",\"events.read\",\"events.ingest\",\"settings.write\",\"ReadConfig\",\"WriteConfig\",\"activeGateTokenManagement.create\",\"metrics.ingest\",\"logs.ingest\",\"entities.read\",\"DataExport\",\"InstallerDownload\",\"SupportAlert\"],\"name\":\"azure-workshop-auto\"}" -H "Authorization: Api-Token $DT_ACCESS_API_TOKEN")
+
+DT_WORKSHOP_TOKEN=$(echo $DT_TOKEN | jq -r .token)
+
 echo -e "Please confirm all are correct:"
 echo "--------------------------------------------------"
-echo "Your last name           : $RESOURCE_PREFIX"
-echo "Dynatrace Base URL       : $DT_BASEURL"
-#echo "Dynatrace PaaS Token     : $DT_PAAS_TOKEN"
-echo "Dynatrace API Token      : $DT_API_TOKEN"
-echo "Azure Subscription ID    : $AZURE_SUBSCRIPTION"
+echo "Your last name                 : $RESOURCE_PREFIX"
+echo "Dynatrace Base URL             : $DT_BASEURL"
+#echo "Dynatrace PaaS Token          : $DT_PAAS_TOKEN"
+echo "Dynatrace Access API Token     : $DT_ACCESS_API_TOKEN"
+echo "Azure Subscription ID          : $AZURE_SUBSCRIPTION"
 echo "--------------------------------------------------"
 echo "derived values"
 echo "--------------------------------------------------"
 echo "Azure Resource Group     : $AZURE_RESOURCE_GROUP"
 echo "Azure Cluster Name       : $AZURE_AKS_CLUSTER_NAME"
 echo "Dynatrace Environment ID : $DT_ENVIRONMENT_ID"
+echo "Dynatrace Gen2 BaseURL   : https://$DT_ENVIRONMENT_ID.live.dynatrace.com"
+echo "DT Workshop API Token    : $DT_WORKSHOP_TOKEN"
 echo "Your email               : $EMAIL"
 echo "==================================================================="
 read -p "Is this all correct? (y/n) : " REPLY;
@@ -105,10 +125,12 @@ cat $CREDS_TEMPLATE_FILE | \
   sed 's~AZURE_SUBSCRIPTION_PLACEHOLDER~'"$AZURE_SUBSCRIPTION"'~' | \
   sed 's~AZURE_LOCATION_PLACEHOLDER~'"$AZURE_LOCATION"'~' | \
   sed 's~DT_ENVIRONMENT_ID_PLACEHOLDER~'"$DT_ENVIRONMENT_ID"'~' | \
-  sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' | \
-  sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_API_TOKEN"'~' | \
+  sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL_GEN2"'~' | \
+  sed 's~DT_API_TOKEN_PLACEHOLDER~'"$DT_WORKSHOP_TOKEN"'~' | \
+  sed 's~DT_DASHBOARD_OWNER_EMAIL_PLACEHOLDER~'"$EMAIL"'~' | \
   sed 's~EMAIL_PLACEHOLDER~'"$EMAIL"'~' | \
-  sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' > $CREDS_FILE
+  sed 's~DT_ACCESS_API_TOKEN_PLACEHOLDER~'"$DT_ACCESS_API_TOKEN"'~' | \
+  sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_WORKSHOP_TOKEN"'~' > $CREDS_FILE
 
 echo "Saved credential to: $CREDS_FILE"
 
