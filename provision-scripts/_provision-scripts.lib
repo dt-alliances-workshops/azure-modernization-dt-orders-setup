@@ -432,3 +432,27 @@ if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
   fi
 
 }
+
+does_msinsights_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='microsoft.insights'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+
+}
+register_azure_msinsights_resource_provider()
+{
+
+echo "==================================================================================="
+if [ "$(oes_msinsights_resource_provider_exist)" == "false" ]; then
+    echo "microsoft.insights ResourceProvider at Subscription level not found..."    
+    echo "Registering microsoft.insights Resource Provider at the Subscription for provisioning of AKS cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'microsoft.insights')
+  else
+    echo "Resource  Provider microsoft.insights is already registered at the subscription, moving to next task...."    
+  fi
+
+}

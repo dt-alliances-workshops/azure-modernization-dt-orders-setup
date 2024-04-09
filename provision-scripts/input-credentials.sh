@@ -55,6 +55,7 @@ AZURE_LOCATION=${AZURE_LOCATION_NEW:-$AZURE_LOCATION}
 AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize"
 AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster"
 EMAIL=$(az account show --query user.name --output tsv)
+EMAIL=$(echo $EMAIL | cut -d'#' -f 2)
 
 # pull out the DT_ENVIRONMENT_ID. DT_BASEURL will be one of these patterns
 if [[ $(echo $DT_BASEURL | grep "/e/" | wc -l) == *"1"* ]]; then
@@ -94,7 +95,7 @@ DT_WORKSHOP_TOKEN=$(echo $DT_TOKEN | jq -r .token)
 
 echo -e "Please confirm all are correct:"
 echo "--------------------------------------------------"
-echo "Your last name                 : $RESOURCE_PREFIX"
+#echo "Your last name                 : $RESOURCE_PREFIX"
 echo "Dynatrace Base URL             : $DT_BASEURL"
 #echo "Dynatrace PaaS Token          : $DT_PAAS_TOKEN"
 echo "Dynatrace Access API Token     : $DT_ACCESS_API_TOKEN"

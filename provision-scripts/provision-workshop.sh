@@ -168,14 +168,16 @@ case "$SETUP_TYPE" in
         ./makedynakube.sh
         ;;
     "grail")
-	echo "Setup type= $SETUP_TYPE"
-	source ./_provision-scripts.lib
-	register_azure_opsmgmt_resource_provider
-	createhost monolith
-        create_aks_cluster
-	setup_workshop_config
-	./makedynakube.sh
-	;;
+	    echo "Setup type= $SETUP_TYPE"
+	    source ./_provision-scripts.lib
+	    register_azure_opsmgmt_resource_provider
+      register_azure_msinsights_resource_provider
+      create_azure_service_principal
+	    createhost monolith
+      create_aks_cluster
+	    setup_workshop_config
+	    ./makedynakube.sh
+	    ;;
     *)
         echo "Setup type = base workshop"
         createhost active-gate
