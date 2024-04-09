@@ -447,7 +447,7 @@ register_azure_msinsights_resource_provider()
 {
 
 echo "==================================================================================="
-if [ "$(oes_msinsights_resource_provider_exist)" == "false" ]; then
+if [ "$(does_msinsights_resource_provider_exist)" == "false" ]; then
     echo "microsoft.insights ResourceProvider at Subscription level not found..."    
     echo "Registering microsoft.insights Resource Provider at the Subscription for provisioning of AKS cluster"
     REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'microsoft.insights')

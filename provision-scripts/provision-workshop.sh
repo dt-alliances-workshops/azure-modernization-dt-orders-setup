@@ -150,7 +150,7 @@ case "$SETUP_TYPE" in
         register_azure_opsmgmt_resource_provider
         createhost active-gate
         createhost monolith
-        create_azure_service_principal        
+        #create_azure_service_principal        
         create_aks_cluster
         setup_workshop_config
         ./makedynakube.sh
