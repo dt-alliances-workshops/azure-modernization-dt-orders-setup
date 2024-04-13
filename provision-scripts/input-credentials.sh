@@ -106,9 +106,9 @@ echo "--------------------------------------------------"
 echo "Azure Resource Group     : $AZURE_RESOURCE_GROUP"
 echo "Azure Cluster Name       : $AZURE_AKS_CLUSTER_NAME"
 echo "Dynatrace Environment ID : $DT_ENVIRONMENT_ID"
-echo "Dynatrace Gen2 BaseURL   : https://$DT_ENVIRONMENT_ID.live.dynatrace.com"
-echo "DT Workshop API Token    : $DT_WORKSHOP_TOKEN"
-echo "Your email               : $EMAIL"
+#echo "Dynatrace Gen2 BaseURL   : https://$DT_ENVIRONMENT_ID.live.dynatrace.com"
+#echo "DT Workshop API Token    : $DT_WORKSHOP_TOKEN"
+#echo "Your email               : $EMAIL"
 echo "==================================================================="
 read -p "Is this all correct? (y/n) : " REPLY;
 if [ "$REPLY" != "y" ]; then exit 0; fi
@@ -135,4 +135,12 @@ cat $CREDS_TEMPLATE_FILE | \
 
 echo "Saved credential to: $CREDS_FILE"
 
-cat $CREDS_FILE
+echo "========================================================================================================"
+echo " ***** Please save the values below in a notepad for Lab2"
+echo "	    when we install the Dynatrace Operator on AKS Cluster *****"
+echo "--------------------------------------------------------------------------------------"
+echo "Dynatrace Operator & Data Ingest Token 	:	$DT_WORKSHOP_TOKEN"
+echo "API URL for Dynatrace Tenant	     	:	https://$DT_ENVIRONMENT_ID.live.dynatrace.com/api"
+echo "========================================================================================================="
+
+#cat $CREDS_FILE
