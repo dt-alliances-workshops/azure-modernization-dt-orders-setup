@@ -172,7 +172,7 @@ case "$SETUP_TYPE" in
 	    source ./_provision-scripts.lib
 	    register_azure_opsmgmt_resource_provider
       register_azure_msinsights_resource_provider
-      create_azure_service_principal
+      #create_azure_service_principal
 	    createhost monolith
       create_aks_cluster
 	    setup_workshop_config
