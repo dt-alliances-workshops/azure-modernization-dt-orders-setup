@@ -86,6 +86,7 @@ create_aks_cluster()
       --node-count 2 \
       --node-vm-size 'Standard_D4s_v5' \
       --os-sku AzureLinux \
+      --tags Owner=azure-modernize-workshop \
       --enable-addons monitoring \
       --generate-ssh-keys
   else
