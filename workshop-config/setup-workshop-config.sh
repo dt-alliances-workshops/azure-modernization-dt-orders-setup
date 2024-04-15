@@ -159,7 +159,7 @@ case "$SETUP_TYPE" in
         echo "Setup type = base workshop"
         download_monaco
         # you can comment this line out if you dont have permissions
-        create_service_principal_monaco_config
+        #create_service_principal_monaco_config
         run_monaco
         echo "Sometimes a timing issue with SLO creation, so will repeat in 10 seconds"
         sleep 10

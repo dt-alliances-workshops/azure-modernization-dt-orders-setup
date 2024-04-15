@@ -26,6 +26,13 @@ if [ "$SETUP_TYPE" == "wth" ]; then
     PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
 fi
 
+if [ "$SETUP_TYPE" == "grail" ]; then
+  source ./_provision-scripts.lib
+  PROVISION_MSG="About to setup Dynatrace Grail Workshop\nDynatrace Server: "$DT_BASEURL
+  else
+    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+fi
+
 
 if [ -z $DT_BASEURL ]; then  
     echo "ABORT: missing DT_BASEURL parameter"
@@ -141,13 +148,9 @@ case "$SETUP_TYPE" in
         # contains functions called in this script
         source ./_provision-scripts.lib
         register_azure_opsmgmt_resource_provider
-        register_azure_opsinsight_resource_provider
-        register_azure_container_resource_provider
-        register_azure_storage_resource_provider
-        register_azure_insights_resource_provider
         createhost active-gate
         createhost monolith
-        create_azure_service_principal        
+        #create_azure_service_principal        
         create_aks_cluster
         setup_workshop_config
         ./makedynakube.sh
@@ -164,6 +167,17 @@ case "$SETUP_TYPE" in
         setup_workshop_config
         ./makedynakube.sh
         ;;
+    "grail")
+	    echo "Setup type= $SETUP_TYPE"
+	    source ./_provision-scripts.lib
+	    register_azure_opsmgmt_resource_provider
+      register_azure_msinsights_resource_provider
+      #create_azure_service_principal
+	    createhost monolith
+      create_aks_cluster
+	    setup_workshop_config
+	    ./makedynakube.sh
+	    ;;
     *)
         echo "Setup type = base workshop"
         createhost active-gate
