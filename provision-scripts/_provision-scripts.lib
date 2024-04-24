@@ -160,10 +160,10 @@ does_vm_exist()
 {
   VMCHECK=$(az vm get-instance-view -g $AZURE_RESOURCE_GROUP -n $HOSTNAME --subscription $AZURE_SUBSCRIPTION --query vmId 2>&1 | grep "ResourceNotFound")
   if [ -z "$VMCHECK" ]; then
-    #error so VM doesn't exist
-    echo false
+    #error so VM DOES exist because VMCheck is blank
+    echo true
   else
-   #no error so VM does exist
+   #error in VMCheck so VM does NOT exist
     echo false
   fi
 }
