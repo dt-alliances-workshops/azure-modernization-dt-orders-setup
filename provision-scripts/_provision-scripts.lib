@@ -84,7 +84,7 @@ create_aks_cluster()
       --resource-group $AZURE_RESOURCE_GROUP \
       --name $AZURE_AKS_CLUSTER_NAME \
       --node-count 2 \
-      --node-vm-size 'Standard_D4s_v5' \
+      --node-vm-size 'Standard_DS2_v2' \
       --os-sku AzureLinux \
       --tags Owner=azure-modernize-workshop \
       --enable-addons monitoring \
@@ -316,7 +316,7 @@ provision_monolith_vm()
       --authentication-type password \
       --admin-username workshop \
       --admin-password Workshop123# \
-      --size Standard_DS2_v2 \
+      --size Standard_DS11-1_v2 \
       --public-ip-sku Standard \
       | jq -r '.powerState')"
 
