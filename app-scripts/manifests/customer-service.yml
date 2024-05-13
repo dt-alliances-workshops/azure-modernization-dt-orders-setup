@@ -31,6 +31,11 @@ spec:
         env:
         - name: DT_CUSTOM_PROP
           value: "project=dt-orders service=customer-service"
+        resources:
+          requests:
+            cpu: 50m
+          limits:
+            cpu: 100m
         
 ---
 apiVersion: v1

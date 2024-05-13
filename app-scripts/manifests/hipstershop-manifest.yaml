@@ -65,10 +65,10 @@ spec:
             port: 8080
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 128Mi
 ---
 apiVersion: v1
@@ -138,10 +138,10 @@ spec:
             value: "cartservice:7070"
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 64Mi
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 128Mi
 ---
 apiVersion: v1
@@ -206,10 +206,10 @@ spec:
           value: "1"
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 220Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 450Mi
 ---
 apiVersion: v1
@@ -293,8 +293,8 @@ spec:
             value: "adservice:9555"
           # # ENV_PLATFORM: One of: local, gcp, aws, azure, onprem, alibaba
           # # When not set, defaults to "local" unless running in GKE, otherwies auto-sets to gcp
-          # - name: ENV_PLATFORM
-          #   value: "aws"
+           - name: ENV_PLATFORM
+             value: "azure"
           - name: ENABLE_PROFILER
             value: "0"
           # - name: CYMBAL_BRANDING
@@ -306,10 +306,10 @@ spec:
           #   value: "" # This value would look like "http://123.123.123"
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 64Mi
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 128Mi
 ---
 apiVersion: v1
@@ -383,10 +383,10 @@ spec:
             port: 50051
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 128Mi
 ---
 apiVersion: v1
@@ -447,10 +447,10 @@ spec:
             port: 3550
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 128Mi
 ---
 apiVersion: v1
@@ -503,10 +503,10 @@ spec:
           value: "redis-cart:6379"
         resources:
           requests:
-            cpu: 200m
+            cpu: 100m
             memory: 64Mi
           limits:
-            cpu: 300m
+            cpu: 150m
             memory: 128Mi
         readinessProbe:
           initialDelaySeconds: 15
@@ -595,10 +595,10 @@ spec:
           value: "10"
         resources:
           requests:
-            cpu: 300m
+            cpu: 150m
             memory: 256Mi
           limits:
-            cpu: 500m
+            cpu: 250m
             memory: 512Mi
 ---
 apiVersion: apps/v1
@@ -647,10 +647,10 @@ spec:
             port: 7000
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 128Mi
 ---
 apiVersion: v1
@@ -711,10 +711,10 @@ spec:
             port: 50051
         resources:
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 64Mi
           limits:
-            cpu: 200m
+            cpu: 100m
             memory: 128Mi
 ---
 apiVersion: v1
@@ -832,10 +832,10 @@ spec:
           value: "9555"
         resources:
           requests:
-            cpu: 200m
+            cpu: 100m
             memory: 180Mi
           limits:
-            cpu: 300m
+            cpu: 150m
             memory: 300Mi
         readinessProbe:
           initialDelaySeconds: 20

@@ -29,3 +29,8 @@ spec:
           value: "100000"
         - name: TEST_DEBUG
           value: "false"
+        resources:
+          requests:
+            cpu: 50m
+          limits:
+            cpu: 150m

@@ -27,3 +27,8 @@ spec:
           value: "http://frontend"
         - name: SCRIPT_NUM_LOOPS
           value: "15000"
+        resources:
+          requests:
+            cpu: 50m
+          limits:
+            cpu: 100m
