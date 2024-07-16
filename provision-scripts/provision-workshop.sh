@@ -2,6 +2,11 @@
 
 # contains functions called in this script
 #source ./_provision-scripts.lib
+YLW='\033[1;33m'
+NC='\033[0m'
+COLOR_BLUE='\e[0;34m'
+COLOR_LIGHT_BLUE='\e[1;34m'
+COLOR_RED='\e[0;31m'
 
 # optional argument.  If not based, then the base workshop is setup.
 # setup types are for additional features like kubernetes
@@ -19,18 +24,31 @@ DT_API_TOKEN=$3
 DASHBOARD_OWNER_EMAIL=$4  # required is making monaco dashboards SETUP_TYPE=all.
                           # Otherwise optional or any "dummy" value if you need to pass
 
-if [ "$SETUP_TYPE" == "wth" ]; then
-  source ./_provision-scripts.lib
-  PROVISION_MSG="About to setup Dynatrace ""What the Hack""\nDynatrace Server: "$DT_BASEURL
-  else
-    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
-fi
+#echo "SETUP="$SETUP_TYPE
 
-if [ "$SETUP_TYPE" == "grail" ]; then
+#if [ "$SETUP_TYPE" == "wth" ]; then
+#  source ./_provision-scripts.lib
+#  PROVISION_MSG="About to setup Dynatrace ""What the Hack""\nDynatrace Server: "$DT_BASEURL
+#  #else
+#  #  PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+#fi
+
+#if [ "$SETUP_TYPE" == "grail" ]; then
+#  source ./_provision-scripts.lib
+#  PROVISION_MSG="About to setup Dynatrace Grail Workshop\nDynatrace Server: "$DT_BASEURL
+#  else
+#    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+#fi
+
+if [[ "$SETUP_TYPE" == "grail" ]]; then
+   source ./_provision-scripts.lib
+   PROVISION_MSG="${YLW}About to setup Azure Resources for Dynatrace Grail Workshop\nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
+elif [[ "$SETUP_TYPE" == "wth" ]]; then
+   source ./_provision-scripts.lib
+   PROVISION_MSG="${COLOR_BLUE}About to setup Azure Resources for Dynatrace on Azure What the Hack \nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
+else 
   source ./_provision-scripts.lib
-  PROVISION_MSG="About to setup Dynatrace Grail Workshop\nDynatrace Server: "$DT_BASEURL
-  else
-    PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
+  PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
 fi
 
 
@@ -114,8 +132,7 @@ setup_workshop_config()
 }
 
 echo "==================================================================="
-#echo "About to Provision Workshop" 
-#echo "Dynatrace Managed Server:$DT_BASEURL"
+#echo -e "${COLOR_LIGHT_BLUE}$PROVISION_MSG ${NC}"
 echo -e $PROVISION_MSG
 echo "Setup Type: $SETUP_TYPE"
 echo "==================================================================="
@@ -160,22 +177,25 @@ case "$SETUP_TYPE" in
         # contains functions called in this script
         source ./_provision-scripts.lib
         register_azure_opsmgmt_resource_provider
-        createhost active-gate
+	register_azure_msinsights_resource_provider
+        #createhost active-gate
         createhost monolith
-        create_azure_service_principal        
+        #create_azure_service_principal        
         create_aks_cluster
-        setup_workshop_config
-        ./makedynakube.sh
+        #setup_workshop_config
+	setup_workshop_config k8
+        #./makedynakube.sh
         ;;
     "grail")
 	    echo "Setup type= $SETUP_TYPE"
 	    source ./_provision-scripts.lib
 	    register_azure_opsmgmt_resource_provider
-      register_azure_msinsights_resource_provider
-      #create_azure_service_principal
+      	    register_azure_msinsights_resource_provider
+            #create_azure_service_principal
 	    createhost monolith
-      create_aks_cluster
+            create_aks_cluster
 	    setup_workshop_config
+	    #setup_workshop_config k8
 	    ./makedynakube.sh
 	    ;;
     *)
