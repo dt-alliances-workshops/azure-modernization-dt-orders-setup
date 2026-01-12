@@ -60,11 +60,11 @@ does_aks_exist()
 {
   AKSCHECK=$(az aks show -n $AZURE_AKS_CLUSTER_NAME --resource-group $AZURE_RESOURCE_GROUP --query id 2>&1 | grep "NotFound")
   if [ -z "$AKSCHECK" ]; then
-    #error found, no cluster resource exist
-    echo false
-  else
-    #No error found, hence cluster exist
+    # No NotFound error, so cluster EXISTS
     echo true
+  else
+    # NotFound error found, so cluster does NOT exist
+    echo false
   fi
 }
 
@@ -75,10 +75,11 @@ does_aks_exist()
 create_aks_cluster()
 {
   create_resource_group
+  PROVISIONING_STEP="06-Create-AKS-cluster"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","vmState":"AKS running","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
   # only create if it does not exist
-  if [ "$(does_aks_exist)" == "true" ]; then
+  if [ "$(does_aks_exist)" == "false" ]; then
     echo ""
-    #echo "If you see an ERROR, that is ok it was just a check to see if the cluster already exists "
     echo "Creating AKS Cluster: $AZURE_AKS_CLUSTER_NAME"
     az aks create \
       --resource-group $AZURE_RESOURCE_GROUP \
@@ -89,6 +90,9 @@ create_aks_cluster()
       --tags Owner=azure-modernize-workshop \
       --enable-addons monitoring \
       --generate-ssh-keys
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
   else
     echo "ABORT: AKS Cluster $AZURE_AKS_CLUSTER_NAME already exists"
     exit 1
@@ -98,8 +102,8 @@ create_aks_cluster()
 #*********************************
 delete_aks_cluster()
 {
-  # only create if it does not exist
-  if [ $(az group show -n $AZURE_RESOURCE_GROUP --resource-group $AZURE_RESOURCE_GROUP --query id) ]; then
+  # only delete if it exists
+  if [ "$(az group show -n $AZURE_RESOURCE_GROUP --resource-group $AZURE_RESOURCE_GROUP --query id 2>/dev/null)" ]; then
     echo "Deleting AKS Cluster: $AZURE_RESOURCE_GROUP"
     az aks delete \
       --resource-group $AZURE_RESOURCE_GROUP \
@@ -194,6 +198,8 @@ add_oneagent_extension()
 #*********************************
 create_resource_group()
 {
+  PROVISIONING_STEP="04-Create-resource-group"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
         if [ "$(does_group_exist)" == "true" ]; then
             echo "Skipping, resource group $AZURE_RESOURCE_GROUP exists"
             echo ""
@@ -206,6 +212,9 @@ create_resource_group()
               --name "$AZURE_RESOURCE_GROUP" \
               --subscription "$AZURE_SUBSCRIPTION"
             echo "-------"
+            DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+              -H "Content-Type: application/json" \
+              -d "$JSON_EVENT")
         fi
 
 }
@@ -224,13 +233,19 @@ does_group_exist()
 #*********************************
 delete_resource_group()
 {
-  # only create if it does not exist
-  if [ $(az group show -n $AZURE_RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --query id) ]; then
+  PROVISIONING_STEP="99-Delete-resource-group"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+
+  # only delete if it exists
+  if [ "$(az group show -n $AZURE_RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --query id 2>/dev/null)" ]; then
     echo "Deleting resource group: $AZURE_RESOURCE_GROUP"
     az group delete \
       --resource-group "$AZURE_RESOURCE_GROUP" \
       --subscription "$AZURE_SUBSCRIPTION" \
       --yes
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
   else
     echo "Resource group $AZURE_RESOURCE_GROUP not found"
   fi
@@ -278,7 +293,7 @@ provision_linux_active_gate()
     echo "VM State: $VM_STATE"
     if [ "$VM_STATE" != "VM running" ]; then
       echo "Aborting due to VM creation error."
-      break
+      return 1
     fi
   fi
 }
@@ -287,12 +302,13 @@ provision_linux_active_gate()
 # cloud-init logs: /var/log/cloud-init.log
 provision_monolith_vm()
 {
+  PROVISIONING_STEP="05-Provision-monolith-VM"
   INIT_TEMPLATE_FILE=cloud-init-monolith.template
   INIT_FILE_GEN=../gen/cloud-init-monolith.txt
 
   cat $INIT_TEMPLATE_FILE | \
     sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_PAAS_TOKEN"'~' | \
-    sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' > $INIT_FILE_GEN
+    sed 's~DT_BASEURL_PLACEHOLDER~'"$DT_BASEURL"'~' > $INIT_FILE_GEN  
 
   HOSTNAME="dt-orders-monolith"
   echo "Checking if $HOSTNAME already exists"
@@ -319,11 +335,14 @@ provision_monolith_vm()
       --size Standard_DS11-1_v2 \
       --public-ip-sku Standard \
       | jq -r '.powerState')"
-
+    JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","vmState":"'"$VM_STATE"'","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
     echo "VM State: $VM_STATE"
     if [ "$VM_STATE" != "VM running" ]; then
       echo "Aborting due to VM creation error."
-      break
+      return 1
     else
       echo "Opening Ports"
       OPEN_PORT="$(az vm open-port --port 80 --priority 1010 --resource-group "$AZURE_RESOURCE_GROUP" --name "$HOSTNAME" --subscription "$AZURE_SUBSCRIPTION")"
@@ -370,13 +389,13 @@ provision_services_vm()
     echo "VM State: $VM_STATE"
     if [ "$VM_STATE" != "VM running" ]; then
       echo "Aborting due to VM creation error."
-      break
+      return 1
     else
       echo "Opening Ports"
       OPEN_PORT="$(az vm open-port --port 80 --priority 1010 --resource-group "$AZURE_RESOURCE_GROUP" --name "$HOSTNAME" --subscription "$AZURE_SUBSCRIPTION")"
     fi
   fi
-}    
+}
 
 createhost() {
   #*********************************
@@ -403,7 +422,7 @@ createhost() {
     ;;
   *)
     echo "Invalid HOST_TYPE option: $HOST_TYPE"
-    break
+    return 1
     ;;
   esac
   echo "*** Done. $(date) ***"
@@ -420,16 +439,21 @@ does_opsmgmt_resource_provider_exist()
   fi
 
 }
+
 register_azure_opsmgmt_resource_provider()
 {
+  PROVISIONING_STEP="02-Register-opsmgmt-resource-provider"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
 
-echo "==================================================================================="
-if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
+  echo "==================================================================================="
+  if [ "$(does_opsmgmt_resource_provider_exist)" == "false" ]; then
     echo "Microsoft.OperationsManagement ResourceProvider at Subscription level not found..."    
     echo "Registering Microsoft.OperationsManagement Resource Provider at the Subscription for provisioning of AKS cluster"
     REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.OperationsManagement')
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event -H "Content-Type: application/json"  -d "$JSON_EVENT")
   else
     echo "Resource  Provider Microsoft.OperationsManagement is already registered at the subscription, moving to next task...."    
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event -H "Content-Type: application/json" -d "$JSON_EVENT")
   fi
 
 }
@@ -444,16 +468,24 @@ does_msinsights_resource_provider_exist()
   fi
 
 }
+
 register_azure_msinsights_resource_provider()
 {
+  PROVISIONING_STEP="03-Register-msinsights-resource-provider"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
 
-echo "==================================================================================="
-if [ "$(does_msinsights_resource_provider_exist)" == "false" ]; then
-    echo "microsoft.insights ResourceProvider at Subscription level not found..."    
+  echo "==================================================================================="
+  if [ "$(does_msinsights_resource_provider_exist)" == "false" ]; then
+    echo "microsoft.insights ResourceProvider at Subscription level not found..."
     echo "Registering microsoft.insights Resource Provider at the Subscription for provisioning of AKS cluster"
     REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'microsoft.insights')
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
   else
-    echo "Resource  Provider microsoft.insights is already registered at the subscription, moving to next task...."    
+    echo "Resource  Provider microsoft.insights is already registered at the subscription, moving to next task...."
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
   fi
-
 }

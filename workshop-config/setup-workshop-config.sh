@@ -70,6 +70,20 @@ create_service_principal_monaco_config() {
 }
 
 download_monaco() {
+    PROVISIONING_STEP="07-WorkshopConfig-Download-Monaco"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+
     if [ $(uname -s) == "Darwin" ]
     then
         MONACO_BINARY="v1.8.9/monaco-darwin-amd64"
@@ -81,12 +95,28 @@ download_monaco() {
     wget -q -O monaco https://github.com/dynatrace-oss/dynatrace-monitoring-as-code/releases/download/$MONACO_BINARY
     chmod +x monaco
     echo "Installed Monaco Version: $(./monaco --version | tail -1)"
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
 }
 
 run_monaco() {
     #auto provivision changes begin
     MONACO_PROJECT=$1
     DASHBOARD_OWNER=$2
+    PROVISIONING_STEP="08-WorkshopConfig-Run-Monaco"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
 
     if [ -z $DASHBOARD_OWNER ]; then
         # need to do this so that the monaco valdiation does not fail
@@ -112,11 +142,30 @@ run_monaco() {
         --environments $MONACO_ENVIONMENT_FILE \
         --project $MONACO_PROJECT \
         $MONACO_PROJECT_BASE_PATH
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
 }
 
 run_custom_dynatrace_config() {
+    PROVISIONING_STEP="09-WorkshopConfig-Run-Custom-Dynatrace-Config"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
     setFrequentIssueDetectionOff
     setServiceAnomalyDetection ./custom/service-anomalydetection.json
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
 }
 
 echo ""
@@ -173,3 +222,4 @@ echo "--------------------------------------------------------------------------
 echo "Done Setting up Workshop config for type - $SETUP_TYPE"
 echo "End: $(date)"
 echo "-----------------------------------------------------------------------------------"
+

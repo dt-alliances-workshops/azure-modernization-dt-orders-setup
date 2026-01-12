@@ -2,9 +2,12 @@
 
 YLW='\033[1;33m'
 NC='\033[0m'
+PROVISIONING_STEP="01-Input-credentials"
 
 CREDS_TEMPLATE_FILE="./workshop-credentials.template"
 CREDS_FILE="../gen/workshop-credentials.json"
+
+
 
 if [ -f "$CREDS_FILE" ]
 then
@@ -93,6 +96,19 @@ DT_TOKEN=$(curl --silent -X POST "https://$DT_ENVIRONMENT_ID.live.dynatrace.com/
 
 DT_WORKSHOP_TOKEN=$(echo $DT_TOKEN | jq -r .token)
 
+JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+
 echo -e "Please confirm all are correct:"
 echo "--------------------------------------------------"
 #echo "Your last name                 : $RESOURCE_PREFIX"
@@ -143,4 +159,10 @@ echo "Dynatrace Operator & Data Ingest Token 	:	$DT_WORKSHOP_TOKEN"
 echo "API URL for Dynatrace Tenant	     	:	https://$DT_ENVIRONMENT_ID.live.dynatrace.com/api"
 echo "========================================================================================================="
 
+
+DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
+
 #cat $CREDS_FILE
+

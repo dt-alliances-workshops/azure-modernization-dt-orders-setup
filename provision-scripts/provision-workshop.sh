@@ -43,6 +43,23 @@ DASHBOARD_OWNER_EMAIL=$4  # required is making monaco dashboards SETUP_TYPE=all.
 if [[ "$SETUP_TYPE" == "grail" ]]; then
    source ./_provision-scripts.lib
    PROVISION_MSG="${YLW}About to setup Azure Resources for Dynatrace Grail Workshop\nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
+   PROVISIONING_STEP="98-WorkshopProvisioning-BEGIN"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+   DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
+
 elif [[ "$SETUP_TYPE" == "wth" ]]; then
    source ./_provision-scripts.lib
    PROVISION_MSG="${COLOR_BLUE}About to setup Azure Resources for Dynatrace on Azure What the Hack \nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
@@ -190,7 +207,7 @@ case "$SETUP_TYPE" in
 	    echo "Setup type= $SETUP_TYPE"
 	    source ./_provision-scripts.lib
 	    register_azure_opsmgmt_resource_provider
-      	    register_azure_msinsights_resource_provider
+      register_azure_msinsights_resource_provider
             #create_azure_service_principal
 	    createhost monolith
             create_aks_cluster
@@ -207,9 +224,27 @@ case "$SETUP_TYPE" in
         ;;
 esac
 
+PROVISIONING_STEP="98-WorkshopProvisioning-COMPLETE"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+
 echo ""
 echo "============================================="
 echo "Provisioning workshop resources COMPLETE"
 echo "End: $(date)"
 echo "============================================="
 echo ""
+DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
+
