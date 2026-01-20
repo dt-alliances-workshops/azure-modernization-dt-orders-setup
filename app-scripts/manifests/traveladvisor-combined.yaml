@@ -1,0 +1,105 @@
+# Combined Travel Advisor Kubernetes Manifests
+# This file contains all resources needed to deploy the Travel Advisor application
+# Apply with: kubectl apply -f traveladvisor-combined.yaml
+
+# =============================================================================
+# Namespace
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: travel-advisor-azure-openai-sample
+  labels:
+    name: travel-advisor-azure-openai-sample
+---
+# =============================================================================
+# ConfigMap - Application Configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traveladvisor-config
+  namespace: travel-advisor-azure-openai-sample
+data:
+  AZURE_OPENAI_KEY: "REPLACEME"  
+  AZURE_OPENAI_API_KEY: "REPLACEME"
+  AZURE_OPENAI_ENDPOINT: "REPLACEME"
+  OTEL_ENDPOINT: "REPLACEME"
+  OTEL_API_TOKEN: "REPLACEME" 
+---
+# =============================================================================
+# Travel Advisor Application - Deployment
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traveladvisor-deployment
+  namespace: travel-advisor-azure-openai-sample
+  labels:
+    app: traveladvisor-app
+spec:
+  replicas: 2 # You likely want more than one instance for a production app
+  selector:
+    matchLabels:
+      app: traveladvisor-app
+  template:
+    metadata:
+      labels:
+        app: traveladvisor-app
+    spec:
+      containers:
+      - name: traveladvisor-app
+        # NOTE: This image must be pushed to an Azure Container Registry (ACR)
+        image: dtsidecardemo.azurecr.io/traveladvisor:latest
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: traveladvisor-config # References the ConfigMap defined above
+---
+# =============================================================================
+# Travel Advisor Application - Service
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: traveladvisor-service # This name will be the internal DNS hostname
+  namespace: travel-advisor-azure-openai-sample
+spec:
+  selector:
+    app: traveladvisor-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer # Exposes the service externally via an Azure Load Balancer
+---
+# =============================================================================
+# Load Generator - Deployment
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen-deployment
+  namespace: travel-advisor-azure-openai-sample
+  labels:
+    app: loadgen-app
+spec:
+  # The load generator typically runs as a single instance (1 replica)
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: loadgen-app
+  template:
+    metadata:
+      labels:
+        app: loadgen-app
+    spec:
+      containers:
+      - name: loadgen-container
+        # NOTE: This image must be pushed to ACR (e.g., youracrname.azurecr.io/travel-loadgen:latest)
+        image: dtsidecardemo.azurecr.io/travel-loadgen:latest 
+        env:
+        - name: BASE_URL
+          # Correctly points to the internal Kubernetes Service name!
+          value: http://traveladvisor-service:80

@@ -57,6 +57,10 @@ AZURE_LOCATION=${AZURE_LOCATION_NEW:-$AZURE_LOCATION}
 #AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-dynatrace-azure-modernize"
 AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize"
 AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster"
+AZURE_AIFOUNDRY_NAME="dynatrace-azure-grail-aifoundry"
+# Initialize AI Foundry endpoint and key as empty - will be populated later if resource exists
+AZURE_AIFOUNDRY_ENDPOINT=""
+AZURE_AIFOUNDRY_MODEL_KEY=""
 EMAIL=$(az account show --query user.name --output tsv)
 EMAIL=$(echo $EMAIL | cut -d'#' -f 2)
 
@@ -92,7 +96,7 @@ if [ "${DT_BASEURL: -1}" == "/" ]; then
   DT_BASEURL="$(echo ${DT_BASEURL%?})"
 fi
 
-DT_TOKEN=$(curl --silent -X POST "https://$DT_ENVIRONMENT_ID.live.dynatrace.com/api/v2/apiTokens" -H "accept: application/json; charset=utf-8" -H "Content-Type: application/json; charset=utf-8" -d "{\"scopes\":[\"slo.read\",\"slo.write\",\"settings.read\",\"events.read\",\"events.ingest\",\"settings.write\",\"ReadConfig\",\"WriteConfig\",\"activeGateTokenManagement.create\",\"metrics.ingest\",\"logs.ingest\",\"entities.read\",\"DataExport\",\"InstallerDownload\",\"SupportAlert\"],\"name\":\"azure-workshop-auto\"}" -H "Authorization: Api-Token $DT_ACCESS_API_TOKEN")
+DT_TOKEN=$(curl --silent -X POST "https://$DT_ENVIRONMENT_ID.live.dynatrace.com/api/v2/apiTokens" -H "accept: application/json; charset=utf-8" -H "Content-Type: application/json; charset=utf-8" -d "{\"scopes\":[\"slo.read\",\"slo.write\",\"settings.read\",\"events.read\",\"events.ingest\",\"settings.write\",\"ReadConfig\",\"WriteConfig\",\"activeGateTokenManagement.create\",\"metrics.ingest\",\"logs.ingest\",\"entities.read\",\"DataExport\",\"openTelemetryTrace.ingest\",\"InstallerDownload\",\"SupportAlert\"],\"name\":\"azure-workshop-auto\"}" -H "Authorization: Api-Token $DT_ACCESS_API_TOKEN")
 
 DT_WORKSHOP_TOKEN=$(echo $DT_TOKEN | jq -r .token)
 
@@ -139,6 +143,7 @@ cat $CREDS_TEMPLATE_FILE | \
   sed 's~RESOURCE_PREFIX_PLACEHOLDER~'"$RESOURCE_PREFIX"'~' | \
   sed 's~AZURE_RESOURCE_GROUP_PLACEHOLDER~'"$AZURE_RESOURCE_GROUP"'~' | \
   sed 's~AZURE_AKS_CLUSTER_NAME_PLACEHOLDER~'"$AZURE_AKS_CLUSTER_NAME"'~' | \
+  sed 's~AZURE_AIFOUNDRY_NAME_PLACEHOLDER~'"$AZURE_AIFOUNDRY_NAME"'~' | \
   sed 's~AZURE_SUBSCRIPTION_PLACEHOLDER~'"$AZURE_SUBSCRIPTION"'~' | \
   sed 's~AZURE_LOCATION_PLACEHOLDER~'"$AZURE_LOCATION"'~' | \
   sed 's~DT_ENVIRONMENT_ID_PLACEHOLDER~'"$DT_ENVIRONMENT_ID"'~' | \
@@ -147,7 +152,9 @@ cat $CREDS_TEMPLATE_FILE | \
   sed 's~DT_DASHBOARD_OWNER_EMAIL_PLACEHOLDER~'"$EMAIL"'~' | \
   sed 's~EMAIL_PLACEHOLDER~'"$EMAIL"'~' | \
   sed 's~DT_ACCESS_API_TOKEN_PLACEHOLDER~'"$DT_ACCESS_API_TOKEN"'~' | \
-  sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_WORKSHOP_TOKEN"'~' > $CREDS_FILE
+  sed 's~DT_PAAS_TOKEN_PLACEHOLDER~'"$DT_WORKSHOP_TOKEN"'~' | \
+  sed 's~AZURE_AIFOUNDRY_ENDPOINT_PLACEHOLDER~'"$AZURE_AIFOUNDRY_ENDPOINT"'~' | \
+  sed 's~AZURE_AIFOUNDRY_MODEL_KEY_PLACEHOLDER~'"$AZURE_AIFOUNDRY_MODEL_KEY"'~' > $CREDS_FILE
 
 echo "Saved credential to: $CREDS_FILE"
 echo " "

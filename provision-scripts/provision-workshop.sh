@@ -43,7 +43,7 @@ DASHBOARD_OWNER_EMAIL=$4  # required is making monaco dashboards SETUP_TYPE=all.
 if [[ "$SETUP_TYPE" == "grail" ]]; then
    source ./_provision-scripts.lib
    PROVISION_MSG="${YLW}About to setup Azure Resources for Dynatrace Grail Workshop\nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
-   PROVISIONING_STEP="98-WorkshopProvisioning-BEGIN"
+   PROVISIONING_STEP="00-WorkshopProvisioning-BEGIN"
     JSON_EVENT=$(cat <<EOF
 {
   "id": "1",
@@ -52,6 +52,7 @@ if [[ "$SETUP_TYPE" == "grail" ]]; then
   "event.category": "azure-workshop",
   "user": "$EMAIL",
   "event.type": "provisioning-step",
+  "provisioning.setup_type": "$SETUP_TYPE",
   "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
 }
 EOF
@@ -63,6 +64,24 @@ EOF
 elif [[ "$SETUP_TYPE" == "wth" ]]; then
    source ./_provision-scripts.lib
    PROVISION_MSG="${COLOR_BLUE}About to setup Azure Resources for Dynatrace on Azure What the Hack \nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
+   PROVISION_MSG="${YLW}About to setup Azure Resources for Dynatrace Grail Workshop\nTo point to Dynatrace SaaS Server: "$DT_BASEURL"${NC}"
+   PROVISIONING_STEP="00-WorkshopProvisioning-BEGIN"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "provisioning.setup_type": "$SETUP_TYPE",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+   DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
 else 
   source ./_provision-scripts.lib
   PROVISION_MSG="About to setup Modernization Workshop\nDynatrace Managed Server: "$DT_BASEURL
@@ -82,6 +101,24 @@ fi
 
 if [ -z $SETUP_TYPE ]; then
   SETUP_TYPE=all
+  PROVISIONING_STEP="00-WorkshopProvisioning-BEGIN"
+    JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "provisioning.setup_type": "$SETUP_TYPE",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+)
+   DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+     -H "Content-Type: application/json" \
+     -d "$JSON_EVENT")
+  
 fi
 
 
@@ -194,13 +231,13 @@ case "$SETUP_TYPE" in
         # contains functions called in this script
         source ./_provision-scripts.lib
         register_azure_opsmgmt_resource_provider
-	register_azure_msinsights_resource_provider
+	      register_azure_msinsights_resource_provider
         #createhost active-gate
         createhost monolith
         #create_azure_service_principal        
         create_aks_cluster
         #setup_workshop_config
-	setup_workshop_config k8
+	      setup_workshop_config k8
         #./makedynakube.sh
         ;;
     "grail")
@@ -208,9 +245,10 @@ case "$SETUP_TYPE" in
 	    source ./_provision-scripts.lib
 	    register_azure_opsmgmt_resource_provider
       register_azure_msinsights_resource_provider
-            #create_azure_service_principal
+      register_azure_mscontainerservice_resource_provider            
 	    createhost monolith
-            create_aks_cluster
+      create_aks_cluster
+      provision_ai_foundry
 	    setup_workshop_config
 	    #setup_workshop_config k8
 	    ./makedynakube.sh
@@ -224,8 +262,11 @@ case "$SETUP_TYPE" in
         ;;
 esac
 
-PROVISIONING_STEP="98-WorkshopProvisioning-COMPLETE"
-    JSON_EVENT=$(cat <<EOF
+WORKSHOP_RESOURCE_COUNT=$(checkNumOfAzureResourcesInGroup)
+if [ "$SETUP_TYPE" == "grail" ] && [ "$WORKSHOP_RESOURCE_COUNT" -lt 10 ]; then
+  echo -e "${COLOR_RED}ERROR: Less than expected number of resources ($WORKSHOP_RESOURCE_COUNT) found in resource group $AZURE_RESOURCE_GROUP. Please check Azure Portal to verify if resources were created successfully. Re-run the provisioning script to create resources. ${NC}"
+  PROVISIONING_STEP="98-WorkshopProvisioning-FAILED"
+  JSON_EVENT=$(cat <<EOF
 {
   "id": "1",
   "step": "$PROVISIONING_STEP",
@@ -236,7 +277,22 @@ PROVISIONING_STEP="98-WorkshopProvisioning-COMPLETE"
   "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
 }
 EOF
-)
+  )
+else
+  PROVISIONING_STEP="99-WorkshopProvisioning-COMPLETE"
+  JSON_EVENT=$(cat <<EOF
+{
+  "id": "1",
+  "step": "$PROVISIONING_STEP",
+  "event.provider": "azure-workshop-provisioning",
+  "event.category": "azure-workshop",
+  "user": "$EMAIL",
+  "event.type": "provisioning-step",
+  "DT_ENVIRONMENT_ID": "$DT_ENVIRONMENT_ID"
+}
+EOF
+  )
+fi
 
 echo ""
 echo "============================================="

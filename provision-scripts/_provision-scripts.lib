@@ -14,12 +14,91 @@ then
     AZURE_LOCATION=$(cat $CREDS_FILE | jq -r '.AZURE_LOCATION')
     RESOURCE_PREFIX=$(cat $CREDS_FILE | jq -r '.RESOURCE_PREFIX')
     AZURE_AKS_CLUSTER_NAME=$(cat $CREDS_FILE | jq -r '.AZURE_AKS_CLUSTER_NAME')
+    AZURE_AIFOUNDRY_NAME=$(cat $CREDS_FILE | jq -r '.AZURE_AIFOUNDRY_NAME')
     EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
     DASHBOARD_OWNER_EMAIL=$(cat $CREDS_FILE | jq -r '.EMAIL')
 else
   echo "ABORT: CREDS_FILE: $CREDS_FILE not found"
   exit 1
 fi
+
+#*********************************
+# Function to update the traveladvisor-combined.yaml manifest with AI Foundry credentials
+# Parameters: $1 = endpoint, $2 = api_key
+update_traveladvisor_manifest()
+{
+  ENDPOINT=$1
+  API_KEY=$2
+  
+  TRAVELADVISOR_MANIFEST="../app-scripts/manifests/traveladvisor-combined.yaml"
+  
+  if [ -f "$TRAVELADVISOR_MANIFEST" ]; then
+    echo "Updating Travel Advisor manifest with AI Foundry credentials..."
+    
+    # Update AZURE_OPENAI_ENDPOINT
+    sed -i 's~AZURE_OPENAI_ENDPOINT:.*~AZURE_OPENAI_ENDPOINT: "'"$ENDPOINT"'"~' "$TRAVELADVISOR_MANIFEST"
+    
+    # Update AZURE_OPENAI_KEY
+    sed -i 's~AZURE_OPENAI_KEY:.*~AZURE_OPENAI_KEY: "'"$API_KEY"'"~' "$TRAVELADVISOR_MANIFEST"
+    
+    # Update AZURE_OPENAI_API_KEY
+    sed -i 's~AZURE_OPENAI_API_KEY:.*~AZURE_OPENAI_API_KEY: "'"$API_KEY"'"~' "$TRAVELADVISOR_MANIFEST"
+
+    # Update OTEL_ENDPOINT
+    OTEL_ENDPOINT="https://${DT_ENVIRONMENT_ID}.live.dynatrace.com/api/v2/otlp"
+    sed -i 's~OTEL_ENDPOINT:.*~OTEL_ENDPOINT: "'"$OTEL_ENDPOINT"'"~' "$TRAVELADVISOR_MANIFEST"
+    sed -i 's~OTEL_API_TOKEN:.*~OTEL_API_TOKEN: "'"$DT_API_TOKEN"'"~' "$TRAVELADVISOR_MANIFEST"
+    
+    echo "Updated $TRAVELADVISOR_MANIFEST with:"
+    echo "  AZURE_OPENAI_ENDPOINT: $ENDPOINT"
+    echo "  AZURE_OPENAI_KEY: [REDACTED]"
+    echo "  AZURE_OPENAI_API_KEY: [REDACTED]"
+  else
+    echo "WARNING: Travel Advisor manifest not found at $TRAVELADVISOR_MANIFEST"
+  fi
+}
+
+#*********************************
+# Function to fetch and update AI Foundry endpoint and key in workshop-credentials.json
+# Call this after the AI Foundry resource has been created
+update_aifoundry_credentials()
+{
+  AIFOUNDRY_ACCOUNT_NAME=$1
+  
+  echo "Fetching AI Foundry endpoint and API key for: $AIFOUNDRY_ACCOUNT_NAME"
+  
+  # Get the AI Foundry endpoint
+  AZURE_AIFOUNDRY_ENDPOINT=$(az cognitiveservices account show \
+    --name "$AIFOUNDRY_ACCOUNT_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --query "properties.endpoint" \
+    --output tsv 2>/dev/null)
+  
+  # Get the AI Foundry API key
+  AZURE_AIFOUNDRY_MODEL_KEY=$(az cognitiveservices account keys list \
+    --name "$AIFOUNDRY_ACCOUNT_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --query "key1" \
+    --output tsv 2>/dev/null)
+  
+  if [ -n "$AZURE_AIFOUNDRY_ENDPOINT" ] && [ -n "$AZURE_AIFOUNDRY_MODEL_KEY" ]; then
+    # Update the credentials file using jq
+    TEMP_FILE=$(mktemp)
+    jq --arg endpoint "$AZURE_AIFOUNDRY_ENDPOINT" \
+       --arg key "$AZURE_AIFOUNDRY_MODEL_KEY" \
+       '.AZURE_AIFOUNDRY_ENDPOINT = $endpoint | .AZURE_AIFOUNDRY_MODEL_KEY = $key' \
+       "$CREDS_FILE" > "$TEMP_FILE" && mv "$TEMP_FILE" "$CREDS_FILE"
+    
+    echo "Updated $CREDS_FILE with AI Foundry credentials"
+    echo "  Endpoint: $AZURE_AIFOUNDRY_ENDPOINT"
+    echo "  API Key: [REDACTED]"
+    
+    # Update the Travel Advisor Kubernetes manifest
+    update_traveladvisor_manifest "$AZURE_AIFOUNDRY_ENDPOINT" "$AZURE_AIFOUNDRY_MODEL_KEY"
+  else
+    echo "WARNING: Could not fetch AI Foundry credentials for $AIFOUNDRY_ACCOUNT_NAME"
+  fi
+}
 
 #*********************************
 create_dynatrace_operator_secrets_script()
@@ -86,6 +165,7 @@ create_aks_cluster()
       --name $AZURE_AKS_CLUSTER_NAME \
       --node-count 4 \
       --node-vm-size 'Standard_DS2_v2' \
+      --subscription $AZURE_SUBSCRIPTION \
       --os-sku AzureLinux \
       --tags Owner=azure-modernize-workshop \
       --enable-addons monitoring \
@@ -488,4 +568,155 @@ register_azure_msinsights_resource_provider()
       -H "Content-Type: application/json" \
       -d "$JSON_EVENT")
   fi
+}
+
+does_mscontainerservice_resource_provider_exist()
+{
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.ContainerService'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
+    echo true
+  else
+    echo false
+  fi
+}
+
+register_azure_mscontainerservice_resource_provider()
+{
+  PROVISIONING_STEP="03-Register-mscontainerservice-resource-provider"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+
+  echo "==================================================================================="
+  if [ "$(does_mscontainerservice_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.ContainerService ResourceProvider at Subscription level not found..."
+    echo "Registering Microsoft.ContainerService Resource Provider at the Subscription for provisioning of AKS cluster"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.ContainerService')
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
+  else
+    echo "Resource  Provider Microsoft.ContainerService is already registered at the subscription, moving to next task...."
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
+  fi
+}
+
+checkNumOfAzureResourcesInGroup() {
+  RESOURCE_COUNT=$(az resource list --resource-group "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION" --query "length([])" -o tsv)
+  echo "$RESOURCE_COUNT"
+}
+
+#*********************************
+does_aifoundry_exist()
+{
+  AIFOUNDRY_CHECK=$(az cognitiveservices account show --name "$AZURE_AIFOUNDRY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION" --query id 2>&1 | grep -E "ResourceNotFound|ResourceGroupNotFound")
+  if [ -z "$AIFOUNDRY_CHECK" ]; then
+    # No error, so AI Foundry EXISTS
+    echo true
+  else
+    # Error found, so AI Foundry does NOT exist
+    echo false
+  fi
+}
+
+#*********************************
+does_aifoundry_model_deployment_exist()
+{
+  MODEL_DEPLOYMENT_NAME=$1
+  DEPLOYMENT_CHECK=$(az cognitiveservices account deployment show --name "$AZURE_AIFOUNDRY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION" --deployment-name "$MODEL_DEPLOYMENT_NAME" --query id 2>&1 | grep "NotFound")
+  if [ -z "$DEPLOYMENT_CHECK" ]; then
+    echo true
+  else
+    echo false
+  fi
+}
+
+#*********************************
+provision_ai_foundry()
+{
+  PROVISIONING_STEP="07-Provision-AI-Foundry"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+  
+  echo ""
+  echo "==================================================================================="
+  echo "Provisioning AI Foundry Resources in Resource Group: $AZURE_RESOURCE_GROUP"
+  echo "==================================================================================="
+  
+  # Check if AI Foundry already exists
+  if [ "$(does_aifoundry_exist)" == "true" ]; then
+    echo "AI Foundry account $AZURE_AIFOUNDRY_NAME already exists. Skipping creation..."
+    AI_FOUNDRY_CREATION_STATUS="Succeeded"
+  else
+    echo "Creating AI Foundry account: $AZURE_AIFOUNDRY_NAME"
+    AI_FOUNDRY_CREATION_STATUS=$(az cognitiveservices account create \
+      --name "$AZURE_AIFOUNDRY_NAME" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --kind AIServices \
+      --sku S0 \
+      --location "$AZURE_LOCATION" \
+      --yes \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --tags Owner=azure-modernize-workshop \
+      --query "provisioningState" \
+      --output tsv)
+  fi
+  
+  echo "AI Foundry Creation Status: $AI_FOUNDRY_CREATION_STATUS"
+  
+  if [ "$AI_FOUNDRY_CREATION_STATUS" == "Succeeded" ]; then
+    echo "AI Foundry account ready."
+    
+    # Check if model deployment already exists
+    MODEL_DEPLOYMENT_NAME="gpt-4o"
+    if [ "$(does_aifoundry_model_deployment_exist "$MODEL_DEPLOYMENT_NAME")" == "true" ]; then
+      echo "Model deployment $MODEL_DEPLOYMENT_NAME already exists. Skipping deployment..."
+      DEPLOY_AI_FOUNDRY_MODEL="Succeeded"
+    else
+      echo "Deploying model: $MODEL_DEPLOYMENT_NAME"
+      DEPLOY_AI_FOUNDRY_MODEL=$(az cognitiveservices account deployment create \
+        --name "$AZURE_AIFOUNDRY_NAME" \
+        --resource-group "$AZURE_RESOURCE_GROUP" \
+        --deployment-name "$MODEL_DEPLOYMENT_NAME" \
+        --model-name "gpt-4o" \
+        --model-version "2024-05-13" \
+        --model-format OpenAI \
+        --sku-name "Standard" \
+        --sku-capacity 1 \
+        --subscription "$AZURE_SUBSCRIPTION" \
+        --query "provisioningState" \
+        --output tsv)
+    fi
+    
+    echo "Model Deployment Status: $DEPLOY_AI_FOUNDRY_MODEL"
+    
+    if [ "$DEPLOY_AI_FOUNDRY_MODEL" == "Succeeded" ]; then
+      echo "AI Foundry model deployed successfully."
+      PROVISIONING_STEP="07-Provision-AI-Foundry - Resource and Model Deployed"
+      JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+      DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+        -H "Content-Type: application/json" \
+        -d "$JSON_EVENT")
+      
+      # Update credentials file with AI Foundry endpoint and key
+      update_aifoundry_credentials "$AZURE_AIFOUNDRY_NAME"
+    else
+      echo "AI Foundry model deployment failed."
+      PROVISIONING_STEP="90-Provision-AI-Foundry - Model Deployment FAILED"
+      JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+      DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+        -H "Content-Type: application/json" \
+        -d "$JSON_EVENT")
+      return 1
+    fi
+  else
+    echo "AI Foundry creation failed."
+    PROVISIONING_STEP="90-Provision-AI-Foundry - Resource Deployment FAILED"
+    JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
+    return 1
+  fi
+  
+  echo "==================================================================================="
 }
