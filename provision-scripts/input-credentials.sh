@@ -55,9 +55,16 @@ AZURE_LOCATION=${AZURE_LOCATION_NEW:-$AZURE_LOCATION}
 #AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-azure-modernize-workshop"
 #AZURE_AKS_CLUSTER_NAME="$RESOURCE_PREFIX-azure-modernize-cluster"
 #AZURE_RESOURCE_GROUP="$RESOURCE_PREFIX-dynatrace-azure-modernize"
-AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize"
-AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster"
-AZURE_AIFOUNDRY_NAME="dynatrace-azure-grail-aifoundry"
+# Append RESOURCE_PREFIX if it exists to make resource names unique per user
+if [ -n "$RESOURCE_PREFIX" ]; then
+  AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize-$RESOURCE_PREFIX"
+  AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster-$RESOURCE_PREFIX"
+  AZURE_AIFOUNDRY_NAME="dynatrace-azure-grail-aifoundry-$RESOURCE_PREFIX"
+else
+  AZURE_RESOURCE_GROUP="dynatrace-azure-grail-modernize"
+  AZURE_AKS_CLUSTER_NAME="dynatrace-azure-grail-cluster"
+  AZURE_AIFOUNDRY_NAME="dynatrace-azure-grail-aifoundry"
+fi
 # Initialize AI Foundry endpoint and key as empty - will be populated later if resource exists
 AZURE_AIFOUNDRY_ENDPOINT=""
 AZURE_AIFOUNDRY_MODEL_KEY=""

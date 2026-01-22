@@ -71,6 +71,7 @@ update_aifoundry_credentials()
   AZURE_AIFOUNDRY_ENDPOINT=$(az cognitiveservices account show \
     --name "$AIFOUNDRY_ACCOUNT_NAME" \
     --resource-group "$AZURE_RESOURCE_GROUP" \
+    --subscription "$AZURE_SUBSCRIPTION" \
     --query "properties.endpoint" \
     --output tsv 2>/dev/null)
   
@@ -78,8 +79,17 @@ update_aifoundry_credentials()
   AZURE_AIFOUNDRY_MODEL_KEY=$(az cognitiveservices account keys list \
     --name "$AIFOUNDRY_ACCOUNT_NAME" \
     --resource-group "$AZURE_RESOURCE_GROUP" \
+    --subscription "$AZURE_SUBSCRIPTION" \
     --query "key1" \
     --output tsv 2>/dev/null)
+  
+  # Debug: Check what values we got
+  if [ -z "$AZURE_AIFOUNDRY_ENDPOINT" ]; then
+    echo "DEBUG: AZURE_AIFOUNDRY_ENDPOINT is empty"
+  fi
+  if [ -z "$AZURE_AIFOUNDRY_MODEL_KEY" ]; then
+    echo "DEBUG: AZURE_AIFOUNDRY_MODEL_KEY is empty"
+  fi
   
   if [ -n "$AZURE_AIFOUNDRY_ENDPOINT" ] && [ -n "$AZURE_AIFOUNDRY_MODEL_KEY" ]; then
     # Update the credentials file using jq
@@ -607,14 +617,53 @@ checkNumOfAzureResourcesInGroup() {
 }
 
 #*********************************
-does_aifoundry_exist()
+does_cognitiveservices_resource_provider_exist()
 {
-  AIFOUNDRY_CHECK=$(az cognitiveservices account show --name "$AZURE_AIFOUNDRY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION" --query id 2>&1 | grep -E "ResourceNotFound|ResourceGroupNotFound")
-  if [ -z "$AIFOUNDRY_CHECK" ]; then
-    # No error, so AI Foundry EXISTS
+  RESOURCE_PROVIDER=$(az provider list --query "sort_by([?namespace=='Microsoft.CognitiveServices'].{Status:registrationState}, &Status)" --out tsv)
+  if [ "$RESOURCE_PROVIDER" == "Registered" ]; then
     echo true
   else
+    echo false
+  fi
+}
+
+#*********************************
+register_azure_cognitiveservices_resource_provider()
+{
+  PROVISIONING_STEP="03-Register-cognitiveservices-resource-provider"
+  JSON_EVENT='{"id":"1","step":"'"$PROVISIONING_STEP"'","event.provider":"azure-workshop-provisioning","event.category":"azure-workshop","user":"'"$EMAIL"'","event.type":"provisioning-step","DT_ENVIRONMENT_ID":"'"$DT_ENVIRONMENT_ID"'"}'
+
+  echo "==================================================================================="
+  if [ "$(does_cognitiveservices_resource_provider_exist)" == "false" ]; then
+    echo "Microsoft.CognitiveServices ResourceProvider at Subscription level not found..."
+    echo "Registering Microsoft.CognitiveServices Resource Provider at the Subscription for provisioning of AI Foundry"
+    REGISTER_RESOURCE_PROVIDER=$(az provider register --only-show-errors --namespace 'Microsoft.CognitiveServices')
+    echo "Waiting for resource provider registration to complete..."
+    sleep 30
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
+  else
+    echo "Resource Provider Microsoft.CognitiveServices is already registered at the subscription, moving to next task...."
+    DT_SEND_EVENT=$(curl -s -X POST https://dt-event-send-dteve5duhvdddbea.eastus2-01.azurewebsites.net/api/send-event \
+      -H "Content-Type: application/json" \
+      -d "$JSON_EVENT")
+  fi
+}
+
+#*********************************
+does_aifoundry_exist()
+{
+  AIFOUNDRY_RESULT=$(az cognitiveservices account show --name "$AZURE_AIFOUNDRY_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION" --query id --output tsv 2>&1)
+  # Check if the result contains an error
+  if echo "$AIFOUNDRY_RESULT" | grep -qE "ResourceNotFound|ResourceGroupNotFound|ERROR"; then
     # Error found, so AI Foundry does NOT exist
+    echo false
+  elif [ -n "$AIFOUNDRY_RESULT" ]; then
+    # Got a valid ID back, resource EXISTS
+    echo true
+  else
+    # Empty result, assume not found
     echo false
   fi
 }
@@ -643,12 +692,13 @@ provision_ai_foundry()
   echo "==================================================================================="
   
   # Check if AI Foundry already exists
-  if [ "$(does_aifoundry_exist)" == "true" ]; then
+  AIFOUNDRY_EXISTS=$(does_aifoundry_exist)
+  
+  if [ "$AIFOUNDRY_EXISTS" == "true" ]; then
     echo "AI Foundry account $AZURE_AIFOUNDRY_NAME already exists. Skipping creation..."
-    AI_FOUNDRY_CREATION_STATUS="Succeeded"
   else
-    echo "Creating AI Foundry account: $AZURE_AIFOUNDRY_NAME"
-    AI_FOUNDRY_CREATION_STATUS=$(az cognitiveservices account create \
+    echo "Creating AI Foundry resource: $AZURE_AIFOUNDRY_NAME"
+    CREATE_OUTPUT=$(az cognitiveservices account create \
       --name "$AZURE_AIFOUNDRY_NAME" \
       --resource-group "$AZURE_RESOURCE_GROUP" \
       --kind AIServices \
@@ -656,12 +706,30 @@ provision_ai_foundry()
       --location "$AZURE_LOCATION" \
       --yes \
       --subscription "$AZURE_SUBSCRIPTION" \
-      --tags Owner=azure-modernize-workshop \
-      --query "provisioningState" \
-      --output tsv)
+      --tags Owner=azure-modernize-workshop 2>&1)
+    CREATE_EXIT_CODE=$?
+    
+    if [ $CREATE_EXIT_CODE -ne 0 ]; then
+      echo "ERROR: AI Foundry creation command failed with exit code $CREATE_EXIT_CODE"
+      echo "Error details: $CREATE_OUTPUT"
+    else
+      echo "AI Foundry create command completed."
+    fi
+    
+    # Wait a moment for Azure to register the resource
+    echo "Waiting for AI Foundry resource to be ready..."
+    sleep 15
   fi
   
-  echo "AI Foundry Creation Status: $AI_FOUNDRY_CREATION_STATUS"
+  # Verify the resource was created successfully by checking its provisioning state
+  AI_FOUNDRY_CREATION_STATUS=$(az cognitiveservices account show \
+    --name "$AZURE_AIFOUNDRY_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --subscription "$AZURE_SUBSCRIPTION" \
+    --query "properties.provisioningState" \
+    --output tsv 2>&1)
+  
+  echo "AI Foundry Status: $AI_FOUNDRY_CREATION_STATUS"
   
   if [ "$AI_FOUNDRY_CREATION_STATUS" == "Succeeded" ]; then
     echo "AI Foundry account ready."
@@ -670,10 +738,9 @@ provision_ai_foundry()
     MODEL_DEPLOYMENT_NAME="gpt-4o"
     if [ "$(does_aifoundry_model_deployment_exist "$MODEL_DEPLOYMENT_NAME")" == "true" ]; then
       echo "Model deployment $MODEL_DEPLOYMENT_NAME already exists. Skipping deployment..."
-      DEPLOY_AI_FOUNDRY_MODEL="Succeeded"
     else
       echo "Deploying model: $MODEL_DEPLOYMENT_NAME"
-      DEPLOY_AI_FOUNDRY_MODEL=$(az cognitiveservices account deployment create \
+      az cognitiveservices account deployment create \
         --name "$AZURE_AIFOUNDRY_NAME" \
         --resource-group "$AZURE_RESOURCE_GROUP" \
         --deployment-name "$MODEL_DEPLOYMENT_NAME" \
@@ -683,9 +750,21 @@ provision_ai_foundry()
         --sku-name "Standard" \
         --sku-capacity 1 \
         --subscription "$AZURE_SUBSCRIPTION" \
-        --query "provisioningState" \
-        --output tsv)
+        --output none
+      
+      # Wait for deployment to complete
+      echo "Waiting for model deployment to complete..."
+      sleep 15
     fi
+    
+    # Verify the model deployment status
+    DEPLOY_AI_FOUNDRY_MODEL=$(az cognitiveservices account deployment show \
+      --name "$AZURE_AIFOUNDRY_NAME" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --subscription "$AZURE_SUBSCRIPTION" \
+      --deployment-name "$MODEL_DEPLOYMENT_NAME" \
+      --query "properties.provisioningState" \
+      --output tsv 2>/dev/null)
     
     echo "Model Deployment Status: $DEPLOY_AI_FOUNDRY_MODEL"
     

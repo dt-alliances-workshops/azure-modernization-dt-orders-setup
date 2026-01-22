@@ -245,7 +245,8 @@ case "$SETUP_TYPE" in
 	    source ./_provision-scripts.lib
 	    register_azure_opsmgmt_resource_provider
       register_azure_msinsights_resource_provider
-      register_azure_mscontainerservice_resource_provider            
+      register_azure_mscontainerservice_resource_provider
+      register_azure_cognitiveservices_resource_provider
 	    createhost monolith
       create_aks_cluster
       provision_ai_foundry
@@ -263,7 +264,8 @@ case "$SETUP_TYPE" in
 esac
 
 WORKSHOP_RESOURCE_COUNT=$(checkNumOfAzureResourcesInGroup)
-if [ "$SETUP_TYPE" == "grail" ] && [ "$WORKSHOP_RESOURCE_COUNT" -lt 10 ]; then
+# Grail setup creates: VM (5 resources) + AKS (2-3 resources) + AI Foundry (1 resource) = ~8-9 resources minimum
+if [ "$SETUP_TYPE" == "grail" ] && [ "$WORKSHOP_RESOURCE_COUNT" -lt 8 ]; then
   echo -e "${COLOR_RED}ERROR: Less than expected number of resources ($WORKSHOP_RESOURCE_COUNT) found in resource group $AZURE_RESOURCE_GROUP. Please check Azure Portal to verify if resources were created successfully. Re-run the provisioning script to create resources. ${NC}"
   PROVISIONING_STEP="98-WorkshopProvisioning-FAILED"
   JSON_EVENT=$(cat <<EOF
